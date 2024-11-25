@@ -62,7 +62,7 @@
 	};
 	const MAX_BURN = 3;
 
-	const baseProb = 0.38; // 0.58 is the recommended value
+	const baseProb = 0.58; // 0.58 is the recommended value
 	const c1 = 0.045;
 	const c2 = 0.131;
 
@@ -137,10 +137,6 @@
 		return (angle * Math.PI) / 180;
 	}
 
-	function randomInt(high: number) {
-		return Math.floor(Math.random() * high);
-	}
-
 	// updateCell returns whether an change was made
 	function updateCell(oldGrid: Cell[][], row: number, col: number): boolean {
 		// The type of a cell never changes
@@ -148,7 +144,7 @@
 		const oldCell = oldGrid[row][col];
 
 		if (oldCell.burnDegree == 0) {
-			let prob = 0;
+			// let prob = 1;
 
 			for (const [rowOffset, colOffset, angle] of NEIGHBOURS) {
 				const neighRow = row + rowOffset;
@@ -161,19 +157,21 @@
 				if (neighCell.burnDegree > 0 && neighCell.burnDegree < MAX_BURN) {
 					const windEffect = Math.exp(windSpeed * (c1 + c2 * (Math.cos(windDir - angle) - 1)));
 					const slopeEffect = 1;
-					prob +=
+
+					let prob =
 						baseProb *
 						(1 + vegWeights[oldCell.veg]) *
 						(1 + densityWeights[oldCell.density]) *
 						windEffect *
 						slopeEffect;
+
+					if (prob > Math.random()) {
+						cell.burnDegree = 1;
+						return true;
+					}
 				}
 			}
-
-			if (prob > Math.random()) {
-				cell.burnDegree = 1;
-				return true;
-			}
+			// prob = 1 - prob;
 		} else if (oldCell.burnDegree < MAX_BURN) {
 			cell.burnDegree++;
 			return true;
@@ -377,8 +375,8 @@
 	}
 
 	$effect(() => {
-		ctx = canvas.getContext('2d');
-		imgCtx = imgCanvas.getContext('2d');
+		ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
+		imgCtx = imgCanvas.getContext('2d') as CanvasRenderingContext2D;
 		resetGrid();
 		loadImages();
 	});
