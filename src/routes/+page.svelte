@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FireGrid from '../lib/FireGrid.svelte';
+	import FireGrid from '$lib/FireGrid.svelte';
 </script>
 
 <FireGrid />

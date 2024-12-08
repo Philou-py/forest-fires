@@ -1,4 +1,8 @@
 <script lang="ts">
+	import vegMap from './maps/vegetation-map.png';
+	import roadsMap from './maps/roads-map.png';
+	import waterlinesMap from './maps/waterlines-map.png';
+
 	let canvas: HTMLCanvasElement;
 	let imgCanvas: HTMLCanvasElement;
 	let widthInput: HTMLInputElement;
@@ -21,15 +25,26 @@
 	// VegType is a value in the list [0, .., 7]
 	type VegType = (typeof Vegetation)[keyof typeof Vegetation];
 
+	// const vegWeights = {
+	// 	[Vegetation.NoVeg]: -1,
+	// 	[Vegetation.Agriculture]: -0.4,
+	// 	[Vegetation.Forests]: 0.4,
+	// 	[Vegetation.Shrublands]: 0.4,
+	// 	[Vegetation.PrimaryRoad]: -0.8,
+	// 	[Vegetation.SecondaryRoad]: -0.7,
+	// 	[Vegetation.TertiaryRoad]: -0.4,
+	// 	[Vegetation.Waterline]: -0.4
+	// } as const;
+
 	const vegWeights = {
 		[Vegetation.NoVeg]: -1,
-		[Vegetation.Agriculture]: -0.4,
+		[Vegetation.Agriculture]: -0.7,
 		[Vegetation.Forests]: 0.4,
 		[Vegetation.Shrublands]: 0.4,
-		[Vegetation.PrimaryRoad]: -0.8,
-		[Vegetation.SecondaryRoad]: -0.7,
-		[Vegetation.TertiaryRoad]: -0.4,
-		[Vegetation.Waterline]: -0.4
+		[Vegetation.PrimaryRoad]: -1.2,
+		[Vegetation.SecondaryRoad]: -0.9,
+		[Vegetation.TertiaryRoad]: -0.7,
+		[Vegetation.Waterline]: -1.0
 	} as const;
 
 	const Density = {
@@ -66,7 +81,7 @@
 	const c1 = 0.045;
 	const c2 = 0.131;
 
-	const windSpeed = 15; // m/s
+	const windSpeed = 0; // m/s
 	const windDir = degToRad(15);
 
 	// Colour values are given as [R, G, B, A]
@@ -240,8 +255,7 @@
 		const endIndex = baseIndex + fourCanvasWidth * cellHeight;
 		for (let i = baseIndex; i < endIndex; i += fourCanvasWidth) {
 			for (let j = 0; j < fourCellWidth; j += 4) {
-				const index = i + j;
-				imageData.data.set(colour, index);
+				imageData.data.set(colour, i + j);
 			}
 		}
 	}
@@ -283,6 +297,7 @@
 			await sleep(5);
 		}
 
+		// ctx.putImageData(imageData, 0, 0);
 		ongoingSimulation = false;
 	}
 
@@ -329,13 +344,37 @@
 		return (0.3 * (r1 - r2) ** 2 + 0.59 * (g1 - g2) ** 2 + 0.11 * (b1 - b2) ** 2) / 65025;
 	}
 
+	// Thickness represents the upper integer part of half the height (or width) of the square that is to be drawn
+	function drawSquare(row: number, col: number, veg: VegType, thickness: number) {
+		const startRow = Math.max(0, row - thickness + 1);
+		const endRow = Math.min(height, row + thickness);
+		const startCol = Math.max(0, col - thickness + 1);
+		const endCol = Math.min(width, col + thickness);
+
+		for (let i = startRow; i < endRow; i++) {
+			for (let j = startCol; j < endCol; j++) {
+				grid[i][j] = {
+					veg,
+					density: Density.Normal,
+					burnDegree: 0
+				};
+				drawCell(i, j);
+			}
+		}
+	}
+
 	async function loadGridFromImg(url: string, mapping: ColourMapping) {
 		const loadedData = await getImageData(url);
+
+		const pixelThickness = 3;
+		// To avoid overlap
+		// const step = 2 * pixelThickness - 1;
 
 		let row = 0;
 		let col = 0;
 		for (let i = 0; i < loadedData.length; i += 4) {
 			const pixelCol = [loadedData[i], loadedData[i + 1], loadedData[i + 2]];
+			// Find the closest matching colour
 			const [closestVeg, dist] = mapping.reduce(
 				([minVeg, minDist], [col, veg]) => {
 					const dist = colourDist(pixelCol, col);
@@ -345,19 +384,29 @@
 			);
 
 			if (dist < 0.03) {
-				grid[row][col] = {
-					veg: closestVeg,
-					density: Density.Normal,
-					burnDegree: 0
-				};
-				drawCell(row, col);
+				drawSquare(row, col, closestVeg, pixelThickness);
 			}
 
+			// To avoid overlap:
+			// if (col + step >= width) {
 			if (col == width - 1) {
 				row++;
 				col = 0;
+
+				// To avoid overlap:
+				// // Skip the remaining pixels on this row
+				// i += fourCellWidth * (width - col);
+				// col = 0;
+
+				// // Skip rows
+				// i += fourCanvasWidth * (step - 1);
+				// row += step;
 			} else {
 				col++;
+
+				// To avoid overlap:
+				// i += fourCellWidth * step;
+				// col += step;
 			}
 		}
 
@@ -365,9 +414,9 @@
 	}
 
 	async function loadImages() {
-		await loadGridFromImg('vegetation-map.png', vegMapping);
-		await loadGridFromImg('roads-map.png', roadsMapping);
-		await loadGridFromImg('waterlines-map.png', waterMapping);
+		await loadGridFromImg(vegMap, vegMapping);
+		await loadGridFromImg(roadsMap, roadsMapping);
+		await loadGridFromImg(waterlinesMap, waterMapping);
 		fillNoVeg();
 		grid[height / 2][width / 2].burnDegree = 1;
 		drawCell(height / 2, width / 2);
@@ -432,11 +481,13 @@
 	</form>
 
 	<div class="canvases">
-			<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}>&#8594;</span>
-			<canvas class="mainCanvas" bind:this={canvas} height="800" width="800"></canvas>
-			{#if ongoingSimulation}
-				<span class="simulationMsg">Simulation en cours...</span>
-			{/if}
+		<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}
+			>&#8594;</span
+		>
+		<canvas class="mainCanvas" bind:this={canvas} height="800" width="800"></canvas>
+		{#if ongoingSimulation}
+			<span class="simulationMsg">Simulation en cours...</span>
+		{/if}
 		<canvas bind:this={imgCanvas} height="800" width="800" style="display: none"></canvas>
 	</div>
 
@@ -444,7 +495,9 @@
 		<button onclick={genFullForestGrid} style="color: forestgreen">Boiser</button>
 		<button onclick={loadImages} style="color: darkorange">Charger le terrain</button>
 		<button onclick={resetDrawGrid} style="color: #414141">Réinitialiser</button>
-		<button onclick={simulate} style="font-size: 1.3em; margin-top: 30px; color: darkcyan">Simuler</button>
+		<button onclick={simulate} style="font-size: 1.3em; margin-top: 30px; color: darkcyan"
+			>Simuler</button
+		>
 	</div>
 </section>
 
