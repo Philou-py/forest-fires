@@ -36,7 +36,7 @@
 	const vegWeights = {
 		[Vegetation.NoVeg]: -1,
 		[Vegetation.Agriculture]: -0.7,
-		[Vegetation.Forests]: 0.4,
+		[Vegetation.Forests]: 0.7,
 		[Vegetation.Shrublands]: 0.4,
 		[Vegetation.PrimaryRoad]: -1.2,
 		[Vegetation.SecondaryRoad]: -0.9,
