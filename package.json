@@ -13,8 +13,10 @@
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^3.3.1",
+		"@sveltejs/adapter-node": "^5.2.10",
 		"@sveltejs/kit": "^2.9.0",
 		"@sveltejs/vite-plugin-svelte": "^4.0.2",
+		"@types/node": "^22.10.2",
 		"prettier": "^3.4.2",
 		"prettier-plugin-svelte": "^3.3.2",
 		"sass": "^1.82.0",
@@ -22,5 +24,8 @@
 		"svelte-check": "^4.1.1",
 		"typescript": "^5.7.2",
 		"vite": "^5.4.11"
+	},
+	"dependencies": {
+		"canvas": "^2.11.2"
 	}
 }
