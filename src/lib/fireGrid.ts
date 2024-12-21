@@ -68,13 +68,14 @@ export const MAX_BURN = 2;
 export type DrawingBoard = {
   ctx: CanvasRenderingContext2D,
   imageData: ImageData,
+  grid: Cell[][],
+  cellsOnFire: Set<[number, number]>,
+  width: number,
+  height: number,
   canvasWidth: number,
   canvasHeight: number,
   cellWidth: number,
   cellHeight: number,
-  grid: Cell[][],
-  width: number,
-  height: number,
 };
 
 export const baseProb = 0.58; // 0.58 is the recommended value

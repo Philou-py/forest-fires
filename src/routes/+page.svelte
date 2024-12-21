@@ -1,8 +1,9 @@
 <script lang="ts">
 	// import type { PageData } from "./$types";
 	import { onMount } from 'svelte';
-	import { createGrid, baseProb, vegWeights, densityWeights, drawCell, MAX_BURN, c1, c2, Vegetation } from "$lib/fireGrid";
+	import { createGrid, vegWeights, densityWeights, drawCell, MAX_BURN, baseProb, c1, c2, Vegetation } from "$lib/fireGrid";
 	import type { DrawingBoard } from "$lib/fireGrid";
+	import { setFire, sim1, simulate, type SimOptions } from "$lib/simulation";
 	import { loadImages } from '$lib/mapLoading';
 
 	// let { data }: { data: PageData } = $props();
@@ -10,14 +11,13 @@
 	let canvas: HTMLCanvasElement;
 	let board: DrawingBoard;
 
+	let ongoingSimulation = $state(false);
+
 	let windSpeed = $state(0); // m/s
 	let windDirDeg = $state(15);
 	let windDir = $derived(degToRad(windDirDeg));
 
 	let pixelThickness = $state(3);
-
-	let cellsOnFire: Set<[number, number]> = new Set();
-	let ongoingSimulation = $state(false);
 
 	let height = $state(800);
 	let width = $state(800);
@@ -28,64 +28,8 @@
 	let cellHeight = $derived(Math.max(1, Math.floor(canvasHeight / height)));
 	let cellWidth = $derived(Math.max(1, Math.floor(canvasWidth / width)));
 
-	// This list contains the relative position in the grid of neighbouring squares,
-	// as well as the angle of the wind from a neighbour towards the center.
-	const NEIGHBOURS = [
-		[-1, -1, (3 * Math.PI) / 4],
-		[-1, 0, Math.PI / 2],
-		[-1, 1, Math.PI / 4],
-		[0, 1, 0],
-		[1, 1, -Math.PI / 4],
-		[1, 0, -Math.PI / 2],
-		[1, -1, (-3 * Math.PI) / 4],
-		[0, -1, Math.PI]
-	];
-
 	function degToRad(angle: number) {
 		return (angle * Math.PI) / 180;
-	}
-
-	// This function accepts the coordinates as an array coming from
-	// the cellsOnFire set, in order to preserve referential equality.
-	function updateCell(coords: [number, number]) {
-		const [row, col] = coords;
-
-		for (const [rowOffset, colOffset, angle] of NEIGHBOURS) {
-			const neighRow = row + rowOffset;
-			const neighCol = col + colOffset;
-
-			if (neighRow < 0 || neighRow >= height || neighCol < 0 || neighCol >= width) continue;
-
-			let neighCell = board.grid[neighRow][neighCol];
-			if (neighCell.burnDegree === 0) {
-				const windEffect = Math.exp(windSpeed * (c1 + c2 * (Math.cos(windDir - angle) - 1)));
-				const slopeEffect = 1;
-
-				let prob =
-					baseProb *
-					(1 + vegWeights[neighCell.veg]) *
-					(1 + densityWeights[neighCell.density]) *
-					windEffect *
-					slopeEffect;
-
-				if (prob > Math.random()) {
-					neighCell.burnDegree = 1;
-					cellsOnFire.add([neighRow, neighCol]);
-					drawCell(board, neighRow, neighCol);
-				}
-			}
-		}
-
-		const cell = board.grid[row][col];
-		cell.burnDegree++;
-		if (cell.burnDegree === MAX_BURN) {
-			cellsOnFire.delete(coords);
-			drawCell(board, row, col);
-		}
-	}
-
-	function sleep(millis: number) {
-		return new Promise((resolve) => setTimeout(resolve, millis));
 	}
 
 	function resizeCanvas(event: SubmitEvent) {
@@ -115,60 +59,15 @@
 		board.ctx.putImageData(board.imageData, 0, 0);
 	}
 
-	async function simulate() {
-		ongoingSimulation = true;
-
-		while (cellsOnFire.size > 0) {
-			// 'updateCell' will update 'cellsOnFire', hence the need to store the number
-			// of elements to consider in each step
-			const nbCellsOnFire = cellsOnFire.size;
-			const cellsIterator = cellsOnFire.values();
-
-			for (let i = 0; i < nbCellsOnFire; i++) {
-				updateCell(cellsIterator.next().value!);
-			}
-
-			board.ctx.putImageData(board.imageData, 0, 0);
-			await sleep(10);
-		}
-
-		board.ctx.putImageData(board.imageData, 0, 0);
-		ongoingSimulation = false;
-
-		console.log("Number of burnt trees:", countBurntTrees());
-	}
-
-	function countBurntTrees() {
-		let burntCount = 0;
-		for (let row = 0; row < height; row++) {
-			for (let col = 0; col < width; col++) {
-				if (board.grid[row][col].burnDegree > 0) burntCount++;
-			}
-		}
-		return burntCount;
-	}
-
-	function setFire(row?: number, col?: number) {
-		if (row === undefined || col === undefined) {
-			row = height / 2;
-			col = width / 2;
-		}
-		board.grid[row][col].burnDegree = 1;
-		cellsOnFire.add([row, col]);
-		drawCell(board, row, col);
-		board.ctx.putImageData(board.imageData, 0, 0);
-	}
-
 	function genFullForestGrid() {
 		board.grid = createGrid(width, height, Vegetation.Forests);
-		setFire();
+		setFire(board);
 		drawGrid();
 	}
 
 	function resetGrid() {
 		board.imageData = board.ctx.createImageData(canvasWidth, canvasHeight);
 		board.grid = createGrid(width, height);
-		cellsOnFire.clear();
 	}
 
 	function resetDrawGrid() {
@@ -196,7 +95,25 @@
 		const newBoard = await loadImages(width, height, canvasWidth, canvasHeight, pixelThickness);
 		board.grid = newBoard.grid;
 		board.imageData = newBoard.imageData;
-		setFire();
+		setFire(board);
+	}
+
+	async function startSim() {
+		ongoingSimulation = true;
+		
+		const options: SimOptions = {
+			drawEachStep: true,
+			stepInterval: 5,
+			baseProb,
+			windSpeed,
+			windDir,
+			c1,
+			c2
+		};
+		const elapsed = await simulate(board, options);
+		console.log("Simulation done in", elapsed / 1000, "seconds.");
+
+		ongoingSimulation = false;
 	}
 
 	onMount(() => {
@@ -208,6 +125,7 @@
 			ctx,
 			imageData: ctx.createImageData(canvasWidth, canvasHeight),
 			grid: createGrid(width, height),
+			cellsOnFire: new Set(),
 			width,
 			height,
 			canvasWidth,
@@ -232,7 +150,10 @@
 				resetDrawGrid();
 				break;
 			case 'KeyS':
-				simulate();
+				startSim();
+				break;
+			case 'Digit1':
+				sim1();
 				break;
 		}
 	}
@@ -303,8 +224,11 @@
 		<button onclick={genFullForestGrid} style="color: forestgreen">Boiser</button>
 		<button onclick={loadMaps} style="color: darkorange">Charger le terrain</button>
 		<button onclick={resetDrawGrid} style="color: #414141">Réinitialiser</button>
-		<button onclick={simulate} style="font-size: 1.3em; margin-top: 30px; color: darkcyan"
+		<button onclick={startSim} style="font-size: 1.3em; margin-top: 30px; color: darkcyan"
 			>Simuler</button
+		>
+		<button onclick={sim1} style="font-size: 1.3em; margin-top: 30px; color: darkgoldenrod"
+			>Simulation 1</button
 		>
 	</div>
 </section>

@@ -73,6 +73,7 @@ export async function loadImages(width: number, height: number, canvasWidth: num
     ctx: canvas.getContext("2d"),
     imageData: createImageData(canvasWidth, canvasHeight),
     grid: createGrid(width, height),
+    cellsOnFire: new Set(),
     width,
     height,
     canvasWidth,
