@@ -1,10 +1,21 @@
 <script lang="ts">
 	// import type { PageData } from "./$types";
 	import { onMount } from 'svelte';
-	import { createGrid, vegWeights, densityWeights, drawCell, MAX_BURN, baseProb, c1, c2, Vegetation } from "$lib/fireGrid";
-	import type { DrawingBoard } from "$lib/fireGrid";
-	import { setFire, sim1, simulate, type SimOptions } from "$lib/simulation";
+	import {
+		createGrid,
+		vegWeights,
+		densityWeights,
+		drawCell,
+		MAX_BURN,
+		baseProb,
+		c1,
+		c2,
+		Vegetation
+	} from '$lib/fireGrid';
+	import type { DrawingBoard } from '$lib/fireGrid';
+	import { setFire, sim1, simulate, type SimOptions } from '$lib/simulation';
 	import { loadImages } from '$lib/mapLoading';
+	import { getFireCentre } from '$lib/results';
 
 	// let { data }: { data: PageData } = $props();
 
@@ -100,7 +111,7 @@
 
 	async function startSim() {
 		ongoingSimulation = true;
-		
+
 		const options: SimOptions = {
 			drawEachStep: true,
 			stepInterval: 5,
@@ -110,8 +121,9 @@
 			c1,
 			c2
 		};
-		const elapsed = await simulate(board, options);
-		console.log("Simulation done in", elapsed / 1000, "seconds.");
+		const { elapsed, nbSteps } = await simulate(board, options);
+		console.log(`Simulation finished in ${elapsed / 1000} seconds and ${nbSteps} steps.`);
+		console.log('Fire centre:', getFireCentre(board));
 
 		ongoingSimulation = false;
 	}
@@ -131,14 +143,20 @@
 			canvasWidth,
 			canvasHeight,
 			cellWidth,
-			cellHeight,
+			cellHeight
 		};
 
 		// loadMaps();
 		document.addEventListener('keydown', handleKeydown);
+
+		return () => {
+			document.removeEventListener('keydown', handleKeydown);
+		};
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
+		if ((e.target as HTMLElement).tagName === 'INPUT') return;
+		
 		switch (e.code) {
 			case 'KeyB':
 				genFullForestGrid();

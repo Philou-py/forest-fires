@@ -1,7 +1,7 @@
 import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, createGrid, baseProb, c1, c2 } from "$lib/fireGrid";
 import { createCanvas, createImageData } from "canvas";
 import { loadImages } from "$lib/mapLoading";
-import { countBurntTrees } from "./results";
+import { countBurntCells, getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
 
 // This list contains the relative position in the grid of neighbouring squares,
 // as well as the angle of the wind from a neighbour towards the center.
@@ -83,8 +83,10 @@ export type SimOptions = {
 
 export async function simulate(board: DrawingBoard, options: SimOptions) {
   const startTime = Date.now();
+  let nbSteps = 0;
 
   while (board.cellsOnFire.size > 0) {
+    nbSteps++;
     // 'updateCell' will update 'cellsOnFire', hence the need to store the number
     // of elements to consider in each step
     const nbCellsOnFire = board.cellsOnFire.size;
@@ -101,7 +103,10 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
 
   if (!options.drawEachStep) board.ctx.putImageData(board.imageData, 0, 0);
 
-  return Date.now() - startTime;
+  return {
+    nbSteps,
+    elapsed: Date.now() - startTime
+  };
 }
 
 export async function sim1() {
@@ -110,7 +115,7 @@ export async function sim1() {
 
   const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
 
-  const runs = [...Array(15).keys()].map((i) => 2 * i).map(async (windSpeed) => {
+  const runs = [...Array(10).keys()].map((i) => 2 * i).map(async (windSpeed) => {
     const board: DrawingBoard = {
       ctx: canvas.getContext("2d"),
       imageData: createImageData(width, height),
@@ -132,8 +137,15 @@ export async function sim1() {
       windSpeed,
       windDir: 0,
     };
-    await simulate(board, options);
-    return countBurntTrees(board);
+
+    const { nbSteps } = await simulate(board, options);
+
+    return {
+      nbSteps,
+      burnPerc: getBurnPercentage(board),
+      burnPercByVegType: getBurntVegTypes(board),
+      fireCentre: getFireCentre(board),
+    };
   });
 
   const results = await Promise.all(runs);
