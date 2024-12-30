@@ -26,6 +26,8 @@
 		"vite": "^5.4.11"
 	},
 	"dependencies": {
-		"canvas": "^2.11.2"
+		"@fontsource/space-mono": "^5.1.2",
+		"canvas": "^2.11.2",
+		"chart.js": "^4.4.7"
 	}
 }

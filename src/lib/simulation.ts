@@ -1,7 +1,7 @@
-import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, createGrid, baseProb, c1, c2 } from "$lib/fireGrid";
+import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2 } from "$lib/fireGrid";
 import { createCanvas, createImageData } from "canvas";
 import { loadImages } from "$lib/mapLoading";
-import { countBurntCells, getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
+import { getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
 
 // This list contains the relative position in the grid of neighbouring squares,
 // as well as the angle of the wind from a neighbour towards the center.
@@ -109,13 +109,26 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
   };
 }
 
-export async function sim1() {
+export type SimResult = {
+  nbSteps: number;
+  burnPerc: number;
+  burnPercByVegType: [string, number, number | null][];
+  fireCentre: [number, number];
+};
+
+export type ExpResults = {
+  expTitle: string;
+  expDescription: string;
+  runs: SimResult[];
+};
+
+export async function exp1(): Promise<ExpResults> {
   const width = 800, height = 800;
   const canvas = createCanvas(800, 800);
 
   const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
 
-  const runs = [...Array(10).keys()].map((i) => 2 * i).map(async (windSpeed) => {
+  const runs = [...Array(5).keys()].map((i) => 2 * i).map(async (windSpeed) => {
     const board: DrawingBoard = {
       ctx: canvas.getContext("2d"),
       imageData: createImageData(width, height),
@@ -148,7 +161,9 @@ export async function sim1() {
     };
   });
 
-  const results = await Promise.all(runs);
-  console.log(results);
-  return results;
+  return {
+    expTitle: 'Effet du vent',
+    expDescription: 'Dans cette expérience, les simulations sont lancées avec des intensité de vent comprises entre 0 et 40, allant de deux en deux.',
+    runs: await Promise.all(runs)
+  };
 }

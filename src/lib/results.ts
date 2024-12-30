@@ -16,8 +16,9 @@ export function getBurnPercentage(board: DrawingBoard): number {
 
 // Computes the percentage of burnt area for each vegetation type
 export function getBurntVegTypes(board: DrawingBoard): [string, number, number][] {
-	const burntByVeg: Map<VegType, number> = new Map(Object.values(Vegetation).map((veg) => [veg, 0]));
-	const vegCount: Map<VegType, number> = new Map(Object.values(Vegetation).map((veg) => [veg, 0]));
+	const vegs = Object.values(Vegetation).filter((veg) => veg !== 0);
+	const burntByVeg: Map<VegType, number> = new Map(vegs.map((veg) => [veg, 0]));
+	const vegCount: Map<VegType, number> = new Map(vegs.map((veg) => [veg, 0]));
 
 	for (let row = 0; row < board.height; row++) {
 		for (let col = 0; col < board.width; col++) {
@@ -30,7 +31,9 @@ export function getBurntVegTypes(board: DrawingBoard): [string, number, number][
 		}
 	}
 
-	return Object.entries(Vegetation).map(([vegName, veg]) => [vegName, veg, burntByVeg.get(veg)! / vegCount.get(veg)! * 100]);
+	return Object.entries(Vegetation)
+		.filter(([vegType, _]) => vegType !== "NoVeg")
+		.map(([vegName, veg]) => [vegName, veg, burntByVeg.get(veg)! / vegCount.get(veg)! * 100]);
 }
 
 export function getFireCentre(board: DrawingBoard): [number, number] {
