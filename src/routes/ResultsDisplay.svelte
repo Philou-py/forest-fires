@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ExpResults } from '$lib/simulation';
+	import type { SimResult } from '$lib/simulation';
 	import { Chart, Ticks } from 'chart.js/auto';
 	import { Vegetation } from '$lib/fireGrid';
 	import { onMount } from 'svelte';
@@ -10,13 +10,15 @@
 	// https://www.chartjs.org/docs/latest/general/colors.html#dynamic-datasets-at-runtime
 	Chart.defaults.plugins.colors.forceOverride = true;
 
-	interface Props extends ExpResults {
+	interface Props {
+		runs: SimResult[];
+		labels: string[];
 		singleRow?: boolean;
+		shouldReset?: boolean;
 	}
 
-	let { expTitle, expDescription, runs, singleRow }: Props = $props();
+	let { runs, labels, singleRow, shouldReset }: Props = $props();
 
-	let resultsSection: HTMLElement;
 	let chartCanvas1: HTMLCanvasElement;
 	let chartCanvas2: HTMLCanvasElement;
 	let chartCanvas3: HTMLCanvasElement;
@@ -103,17 +105,33 @@
 				}
 			}
 		});
-
-		resultsSection.scrollIntoView();
 	});
 
 	$effect(() => {
-		const simsLabels = runs.map((_, i) => `Sim ${i + 1}`);
+		// If the simulations were reset, discard all previous results
+		if (shouldReset) {
+			chart1.data.datasets = runs.map(({ burnPercByVegType }, i) => ({
+				label: labels[i],
+				data: burnPercByVegType.map(([vegType, _, perc]) => ({ vegType, perc }))
+			}));
+			chart1.update();
 
+			chart2.data.labels = [...labels];
+			chart2.data.datasets[0].data = runs.map(({ burnPerc }) => burnPerc);
+			chart2.update()
+
+			chart3.data.labels = [...labels];
+			chart3.data.datasets[0].data = runs.map(({ nbSteps }) => nbSteps);
+			chart3.update()
+			return;
+		}
+
+		// Pushing elements one by one prevents the whole chart from being rerendered
+		// at each modification - instead, only the new data is nicely animated in.
 		const chart1Datasets = chart1.data.datasets;
 		while (chart1Datasets.length < runs.length) {
 			chart1Datasets.push({
-				label: simsLabels[chart1Datasets.length],
+				label: labels[chart1Datasets.length],
 				data: runs[chart1Datasets.length].burnPercByVegType.map(([vegType, _, perc]) => ({
 					vegType,
 					perc
@@ -124,42 +142,33 @@
 
 		const chart2Data = chart2.data.datasets[0].data;
 		while (chart2Data.length < runs.length) {
-			chart2.data.labels!.push(`Sim ${chart2Data.length}`);
+			chart2.data.labels!.push(labels[chart2Data.length]);
 			chart2Data.push(runs[chart2Data.length].burnPerc);
 		}
 		chart2.update();
 
 		const chart3Data = chart3.data.datasets[0].data;
 		while (chart3Data.length < runs.length) {
-			chart3.data.labels!.push(`Sim ${chart3Data.length}`);
+			chart3.data.labels!.push(labels[chart3Data.length]);
 			chart3Data.push(runs[chart3Data.length].nbSteps);
 		}
 		chart3.update();
 	});
 </script>
 
-<section class="results" bind:this={resultsSection}>
-	<h2>{expTitle}</h2>
-	<p>{expDescription}</p>
-
-	<div class:singleRow>
-		<div class="chart">
-			<canvas bind:this={chartCanvas1}></canvas>
-		</div>
-		<div class="chart">
-			<canvas bind:this={chartCanvas2}></canvas>
-		</div>
-		<div class="chart">
-			<canvas bind:this={chartCanvas3}></canvas>
-		</div>
+<div class:singleRow>
+	<div class="chart">
+		<canvas bind:this={chartCanvas1}></canvas>
 	</div>
-</section>
+	<div class="chart">
+		<canvas bind:this={chartCanvas2}></canvas>
+	</div>
+	<div class="chart">
+		<canvas bind:this={chartCanvas3}></canvas>
+	</div>
+</div>
 
 <style>
-	.results {
-		margin: 50px 0;
-	}
-
 	.singleRow {
 		display: flex;
 		gap: 20px;

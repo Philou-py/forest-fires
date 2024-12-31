@@ -2,23 +2,17 @@
 	import { onMount } from 'svelte';
 	import { createGrid, drawCell, baseProb, c1, c2, Vegetation } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
-	import {
-		setFire,
-		simulate,
-		type ExpResults,
-		type SimOptions,
-		type SimResult
-	} from '$lib/simulation';
+	import { setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
 	import { loadImages } from '$lib/mapLoading';
 	import { getBurnPercentage, getBurntVegTypes, getFireCentre } from '$lib/results';
 	import ResultsDisplay from './ResultsDisplay.svelte';
+	import Experiment from './Experiment.svelte';
 
 	let canvas: HTMLCanvasElement;
 	let board: DrawingBoard;
 
-	let ongoingSim = $state(false);
-	let simResults: ExpResults[] = $state([]);
-	let interactiveSims: SimResult[] = $state([]);
+	let ongoingExp: boolean = $state(false);
+	let runs: SimResult[] = $state([]);
 
 	let windSpeed = $state(0); // m/s
 	let windDirDeg = $state(15);
@@ -110,7 +104,7 @@
 	}
 
 	async function startSim() {
-		ongoingSim = true;
+		ongoingExp = true;
 
 		const options: SimOptions = {
 			drawEachStep: true,
@@ -131,16 +125,8 @@
 			burnPercByVegType: getBurntVegTypes(board),
 			fireCentre: getFireCentre(board)
 		};
-		interactiveSims.push(simResult);
-		console.log($state.snapshot(interactiveSims));
-
-		ongoingSim = false;
-	}
-
-	async function fetchExpResults(expNb: number) {
-		const response = await fetch(`/api/simulate/?expNb=${expNb}`);
-		const result: ExpResults = await response.json();
-		simResults.push(result);
+		runs.push(simResult);
+		ongoingExp = false;
 	}
 
 	onMount(() => {
@@ -174,7 +160,7 @@
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.target as HTMLElement).tagName === 'INPUT') return;
+		if ((e.target as HTMLElement).tagName === 'INPUT' || ongoingExp) return;
 
 		switch (e.code) {
 			case 'KeyB':
@@ -189,9 +175,6 @@
 			case 'KeyS':
 				startSim();
 				break;
-			case 'Digit1':
-				fetchExpResults(1);
-				break;
 		}
 	}
 
@@ -204,7 +187,7 @@
 
 <section class="fireGrid">
 	<div class="canvasControls">
-		<fieldset disabled={ongoingSim}>
+		<fieldset disabled={ongoingExp}>
 			<legend>Paramètres</legend>
 
 			<label>
@@ -224,7 +207,7 @@
 		</fieldset>
 
 		<form onsubmit={resizeCanvas}>
-			<fieldset disabled={ongoingSim}>
+			<fieldset disabled={ongoingExp}>
 				<legend>Dimensions</legend>
 
 				<label>
@@ -249,56 +232,52 @@
 		<!-- Set very high values to avoid layout shift when resizing -->
 		<canvas bind:this={canvas} height={2000} width={2000}></canvas>
 
-		{#if ongoingSim}
+		{#if ongoingExp}
 			<span class="simulationMsg">Simulation en cours...</span>
 		{/if}
 	</div>
 
 	<div class="actions">
-		<button disabled={ongoingSim} onclick={genFullForestGrid} style="color: forestgreen"
-			>Boiser (b)</button
-		>
-		<button disabled={ongoingSim} onclick={loadMaps} style="color: darkslateblue"
-			>Charger le terrain (c)</button
-		>
-		<button disabled={ongoingSim} onclick={resetCanvas} style="color: #414141"
-			>Réinitialiser (r)</button
-		>
+		<button disabled={ongoingExp} onclick={genFullForestGrid} style="color: forestgreen">
+			Boiser (b)
+		</button>
+		<button disabled={ongoingExp} onclick={loadMaps} style="color: darkslateblue">
+			Charger le terrain (c)
+		</button>
+		<button disabled={ongoingExp} onclick={resetCanvas} style="color: #414141">
+			Réinitialiser (r)
+		</button>
 		<button
-			disabled={ongoingSim}
+			disabled={ongoingExp}
 			onclick={startSim}
-			style="font-size: 1.1em; margin-top: 30px; color: darkcyan">Simuler (s)</button
+			style="font-size: 1.1em; margin-top: 30px; color: darkcyan"
 		>
-		<button
-			disabled={ongoingSim}
-			onclick={() => fetchExpResults(1)}
-			style="font-size: 1.1em; margin-top: 30px; color: mediumpurple">Expérience 1</button
-		>
+			Simuler (s)
+		</button>
 	</div>
 </section>
 
 <h1>Résultats des expériences</h1>
 
-<div class="allResults">
-	{#if simResults.length === 0 && interactiveSims.length === 0}
-		<p>
-			Vous visualiserez ici les résultats des expériences pré-enregistrées, ainsi que celles lancées
-			interactivement via le tableau de bord.
-		</p>
-	{:else}
-		{#if interactiveSims.length > 0}
-			<ResultsDisplay
-				expTitle="Simulations interactives"
-				expDescription="Les résultats des simulations déclenchées depuis le tableau de bord apparaissent ici."
-				runs={interactiveSims}
-				singleRow
-			/>
-		{/if}
+<div class="experiments">
+	<p>
+		Vous visualiserez ici les résultats des expériences pré-enregistrées, ainsi que celles lancées
+		interactivement via le tableau de bord.
+	</p>
 
-		{#each simResults as results}
-			<ResultsDisplay {...results} />
-		{/each}
+	<h2>Simulations interactives</h2>
+	<p>Les résultats des simulations déclenchées depuis le tableau de bord apparaîtront ici.</p>
+
+	{#if runs.length > 0}
+		<ResultsDisplay {runs} labels={runs.map((_, i) => `Sim ${i + 1}`)} singleRow />
 	{/if}
+
+	<Experiment
+		expNb={1}
+		expTitle="Effet du vent"
+		expDescription="Dans cette expérience, les simulations sont lancées avec des vitesses de vent croissantes, avec des valeurs allant de deux en deux."
+		initialVal={0}
+	/>
 </div>
 
 <style>
@@ -382,7 +361,7 @@
 		text-align: center;
 	}
 
-	.allResults {
+	.experiments {
 		width: 90%;
 		margin: 50px auto;
 		text-align: justify;

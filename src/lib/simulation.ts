@@ -117,18 +117,20 @@ export type SimResult = {
 };
 
 export type ExpResults = {
-  expTitle: string;
-  expDescription: string;
   runs: SimResult[];
+  labels: string[];
+  nextExp?: number;
 };
 
-export async function exp1(): Promise<ExpResults> {
+export async function exp1(nbIters: number, startVal: number): Promise<ExpResults> {
   const width = 800, height = 800;
   const canvas = createCanvas(800, 800);
 
   const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
 
-  const runs = [...Array(5).keys()].map((i) => 2 * i).map(async (windSpeed) => {
+  const windSpeeds = [...Array(nbIters).keys()].map((i) => 2 * i + startVal);
+
+  const runs = windSpeeds.map(async (windSpeed) => {
     const board: DrawingBoard = {
       ctx: canvas.getContext("2d"),
       imageData: createImageData(width, height),
@@ -162,8 +164,8 @@ export async function exp1(): Promise<ExpResults> {
   });
 
   return {
-    expTitle: 'Effet du vent',
-    expDescription: 'Dans cette expérience, les simulations sont lancées avec des intensité de vent comprises entre 0 et 40, allant de deux en deux.',
-    runs: await Promise.all(runs)
+    runs: await Promise.all(runs),
+    labels: windSpeeds.map((speed) => `${speed} m/s`),
+    nextExp: startVal + nbIters * 2
   };
 }
