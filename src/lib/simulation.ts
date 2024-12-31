@@ -1,7 +1,11 @@
-import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2 } from "$lib/fireGrid";
+import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2, type Cell, createGrid, Vegetation, Density } from "$lib/fireGrid";
 import { createCanvas, createImageData } from "canvas";
 import { loadImages } from "$lib/mapLoading";
 import { getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
+
+export function degToRad(angle: number) {
+  return (angle * Math.PI) / 180;
+}
 
 // This list contains the relative position in the grid of neighbouring squares,
 // as well as the angle of the wind from a neighbour towards the center.
@@ -27,6 +31,21 @@ export function setFire(board: DrawingBoard, row?: number, col?: number) {
   drawCell(board, row, col);
   board.ctx.putImageData(board.imageData, 0, 0);
 }
+
+function sleep(millis: number) {
+  return new Promise((resolve) => setTimeout(resolve, millis));
+}
+
+export type SimOptions = {
+  // If set, the 'imageData' array will be updated when a cell is changed, and 'putImageData' will be called at each step.
+  drawEachStep?: boolean;
+  stepInterval?: number;
+  windSpeed: number;
+  windDir: number;
+  baseProb: number;
+  c1: number;
+  c2: number;
+};
 
 // This function accepts the coordinates as an array coming from
 // the cellsOnFire set, in order to preserve referential equality.
@@ -54,7 +73,7 @@ function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, n
       if (prob > Math.random()) {
         neighCell.burnDegree = 1;
         board.cellsOnFire.add([neighRow, neighCol]);
-        drawCell(board, neighRow, neighCol);
+        if (options.drawEachStep) drawCell(board, neighRow, neighCol);
       }
     }
   }
@@ -63,23 +82,9 @@ function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, n
   cell.burnDegree++;
   if (cell.burnDegree === MAX_BURN) {
     board.cellsOnFire.delete(coords);
-    drawCell(board, row, col);
+    if (options.drawEachStep) drawCell(board, row, col);
   }
 }
-
-function sleep(millis: number) {
-  return new Promise((resolve) => setTimeout(resolve, millis));
-}
-
-export type SimOptions = {
-  drawEachStep?: boolean;
-  stepInterval?: number;
-  windSpeed: number;
-  windDir: number;
-  baseProb: number;
-  c1: number;
-  c2: number;
-};
 
 export async function simulate(board: DrawingBoard, options: SimOptions) {
   const startTime = Date.now();
@@ -100,8 +105,6 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
 
     if (options.stepInterval && options.stepInterval > 0) await sleep(options.stepInterval);
   }
-
-  if (!options.drawEachStep) board.ctx.putImageData(board.imageData, 0, 0);
 
   return {
     nbSteps,
@@ -169,3 +172,104 @@ export async function exp1(nbIters: number, startVal: number): Promise<ExpResult
     nextExp: startVal + nbIters * 2
   };
 }
+
+// Test impact of the wind direction in a homogeneous map
+export async function exp2(nbIters: number, startVal: number): Promise<ExpResults> {
+  const width = 800, height = 800;
+  const canvas = createCanvas(800, 800);
+
+  const initialGrid: Cell[][] = createGrid(width, height, Vegetation.Forests, Density.Normal);
+
+  const turnComplete = startVal + 10 * nbIters >= 360;
+  const windDirs = [...Array(turnComplete ? (360 - startVal) / 10 : nbIters).keys()].map((i) => 10 * i + startVal);
+
+  const runs = windDirs.map(async (windDir) => {
+    const board: DrawingBoard = {
+      ctx: canvas.getContext("2d"),
+      imageData: createImageData(width, height),
+      grid: structuredClone(initialGrid),
+      cellsOnFire: new Set(),
+      width,
+      height,
+      canvasWidth: width,
+      canvasHeight: height,
+      cellWidth: 1,
+      cellHeight: 1,
+    };
+    setFire(board);
+
+    const options: SimOptions = {
+      baseProb,
+      c1,
+      c2,
+      windSpeed: 0,
+      windDir: degToRad(windDir),
+    };
+
+    const { nbSteps } = await simulate(board, options);
+
+    return {
+      nbSteps,
+      burnPerc: getBurnPercentage(board),
+      burnPercByVegType: getBurntVegTypes(board),
+      fireCentre: getFireCentre(board),
+    };
+  });
+
+  return {
+    runs: await Promise.all(runs),
+    labels: windDirs.map((dir) => `${dir}°`),
+    nextExp: turnComplete ? undefined : startVal + 10 * nbIters,
+  };
+}
+
+// Test impact of the wind direction in a complex map
+export async function exp3(nbIters: number, startVal: number): Promise<ExpResults> {
+  const width = 800, height = 800;
+  const canvas = createCanvas(800, 800);
+
+  const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
+
+  const turnComplete = startVal + 10 * nbIters >= 360;
+  const windDirs = [...Array(turnComplete ? (360 - startVal) / 10 : nbIters).keys()].map((i) => 10 * i + startVal);
+
+  const runs = windDirs.map(async (windDir) => {
+    const board: DrawingBoard = {
+      ctx: canvas.getContext("2d"),
+      imageData: createImageData(width, height),
+      grid: structuredClone(initialBoard.grid),
+      cellsOnFire: new Set(),
+      width,
+      height,
+      canvasWidth: width,
+      canvasHeight: height,
+      cellWidth: 1,
+      cellHeight: 1,
+    };
+    setFire(board);
+
+    const options: SimOptions = {
+      baseProb,
+      c1,
+      c2,
+      windSpeed: 0,
+      windDir: degToRad(windDir),
+    };
+
+    const { nbSteps } = await simulate(board, options);
+
+    return {
+      nbSteps,
+      burnPerc: getBurnPercentage(board),
+      burnPercByVegType: getBurntVegTypes(board),
+      fireCentre: getFireCentre(board),
+    };
+  });
+
+  return {
+    runs: await Promise.all(runs),
+    labels: windDirs.map((dir) => `${dir}°`),
+    nextExp: turnComplete ? undefined : startVal + 10 * nbIters,
+  };
+}
+

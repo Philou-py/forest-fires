@@ -61,7 +61,7 @@
 	<p>{expDescription}</p>
 
 	<div class="launchBtns">
-		<button disabled={ongoingExp} onclick={() => fetchExpResults(true)} style="color: mediumpurple">
+		<button disabled={ongoingExp} onclick={() => fetchExpResults(true)} style="color: rebeccapurple">
 			{runs.length > 0 ? 'Rel' : 'L'}ancer l&rsquo;expérience
 		</button>
 

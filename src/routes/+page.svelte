@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { createGrid, drawCell, baseProb, c1, c2, Vegetation } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
-	import { setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
+	import { degToRad, setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
 	import { loadImages } from '$lib/mapLoading';
 	import { getBurnPercentage, getBurntVegTypes, getFireCentre } from '$lib/results';
 	import ResultsDisplay from './ResultsDisplay.svelte';
@@ -30,10 +30,6 @@
 	let cellWidth = 1;
 
 	let dpr = 1;
-
-	function degToRad(angle: number) {
-		return (angle * Math.PI) / 180;
-	}
 
 	function resizeCanvas(event?: SubmitEvent) {
 		event?.preventDefault();
@@ -108,7 +104,7 @@
 
 		const options: SimOptions = {
 			drawEachStep: true,
-			stepInterval: 5,
+			stepInterval: 10,
 			baseProb,
 			windSpeed,
 			windDir,
@@ -274,8 +270,22 @@
 
 	<Experiment
 		expNb={1}
-		expTitle="Effet du vent"
+		expTitle="Effet de la vitesse du vent"
 		expDescription="Dans cette expérience, les simulations sont lancées avec des vitesses de vent croissantes, avec des valeurs allant de deux en deux."
+		initialVal={0}
+	/>
+
+	<Experiment
+		expNb={2}
+		expTitle="Effet de la direction du vent - terrain homogène"
+		expDescription="La direction du vent joue un rôle crucial dans la propagation du feu. Il est néanmoins important de contrôler qu'elle n'a pas d'influence dans un milieu où la végétation est homogène."
+		initialVal={0}
+	/>
+
+	<Experiment
+		expNb={3}
+		expTitle="Effet de la direction du vent - terrain quelconque"
+		expDescription="On teste maintenant les caractéristiques d'un terrain particulier, afin de connaître les directions privilégiées de propagation du feu."
 		initialVal={0}
 	/>
 </div>

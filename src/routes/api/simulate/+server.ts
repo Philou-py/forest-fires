@@ -1,5 +1,5 @@
 import type { RequestHandler } from "./$types";
-import { exp1 } from "$lib/simulation";
+import { exp1, exp2, exp3 } from "$lib/simulation";
 import { json } from "@sveltejs/kit";
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -11,6 +11,12 @@ export const GET: RequestHandler = async ({ url }) => {
   switch (simNb) {
     case 1:
       results = await exp1(nbIters, startVal);
+      break;
+    case 2:
+      results = await exp2(nbIters, startVal);
+      break;
+    case 3:
+      results = await exp3(nbIters, startVal);
       break;
     default:
       results = "No matching experience found!";

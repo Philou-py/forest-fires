@@ -22,10 +22,12 @@
 	let chartCanvas1: HTMLCanvasElement;
 	let chartCanvas2: HTMLCanvasElement;
 	let chartCanvas3: HTMLCanvasElement;
+	let chartCanvas4: HTMLCanvasElement;
 
 	let chart1: Chart<'bar', { vegType: string; perc: number | null }[], string>;
 	let chart2: Chart<'bar', number[], string>;
 	let chart3: Chart<'bar', number[], string>;
+	let chart4: Chart<'scatter', [number, number][], number>;
 
 	onMount(() => {
 		Chart.defaults.devicePixelRatio = 2 * window.devicePixelRatio;
@@ -105,6 +107,40 @@
 				}
 			}
 		});
+
+		chart4 = new Chart(chartCanvas4, {
+			type: 'scatter',
+			data: {
+				datasets: []
+			},
+			options: {
+				elements: {
+					point: {
+						hitRadius: 5,
+						radius: 6,
+						hoverRadius: 8
+					}
+				},
+				scales: {
+					x: {
+						min: 100,
+						max: 800,
+						position: 'top'
+					},
+					y: {
+						min: 100,
+						max: 800,
+						reverse: true
+					}
+				},
+				plugins: {
+					title: {
+						display: true,
+						text: 'Position moyenne du terrain brûlé'
+					}
+				}
+			}
+		});
 	});
 
 	$effect(() => {
@@ -118,11 +154,18 @@
 
 			chart2.data.labels = [...labels];
 			chart2.data.datasets[0].data = runs.map(({ burnPerc }) => burnPerc);
-			chart2.update()
+			chart2.update();
 
 			chart3.data.labels = [...labels];
 			chart3.data.datasets[0].data = runs.map(({ nbSteps }) => nbSteps);
-			chart3.update()
+			chart3.update();
+
+			chart4.data.datasets = runs.map(({ fireCentre }, i) => ({
+				label: labels[i],
+				// Invert row/col to match x/y
+				data: [[fireCentre[1], fireCentre[0]]]
+			}));
+			chart4.update();
 			return;
 		}
 
@@ -153,6 +196,15 @@
 			chart3Data.push(runs[chart3Data.length].nbSteps);
 		}
 		chart3.update();
+
+		const chart4Data = chart4.data.datasets;
+		while (chart4Data.length < runs.length) {
+			chart4Data.push({
+				label: labels[chart4Data.length],
+				data: [[runs[chart4Data.length].fireCentre[1], runs[chart4Data.length].fireCentre[0]]]
+			});
+		}
+		chart4.update();
 	});
 </script>
 
@@ -166,6 +218,9 @@
 	<div class="chart">
 		<canvas bind:this={chartCanvas3}></canvas>
 	</div>
+	<div class="chart">
+		<canvas bind:this={chartCanvas4}></canvas>
+	</div>
 </div>
 
 <style>
@@ -175,12 +230,15 @@
 
 		.chart {
 			flex: 1 1 0;
+			height: 30vh;
 		}
 	}
 
 	.chart {
 		margin: 40px 0;
-		height: 33vh;
+		/* Fit four charts on one screen */
+		height: calc(25vh - 3/4 * 40px);
+		min-height: 200px;
 		/* Recommended by Chart.js for responsive charts */
 		position: relative;
 	}
