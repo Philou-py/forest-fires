@@ -23,6 +23,7 @@ export const vegWeights = {
   [Vegetation.TertiaryRoad]: -0.4,
   [Vegetation.Waterline]: -0.4
 } as const;
+export type VegWeightsType = { [key in keyof typeof vegWeights]: number };
 
 // const vegWeights = {
 // 	[Vegetation.NoVeg]: -1,
@@ -40,10 +41,6 @@ export const Density = {
   Sparse: 1,
   Normal: 2,
   Dense: 3,
-  PrimaryRoad: 4,
-  SecondaryRoad: 5,
-  TertiaryRoad: 6,
-  Waterline: 7
 } as const;
 type DensityType = (typeof Density)[keyof typeof Density];
 
@@ -52,10 +49,6 @@ export const densityWeights = {
   [Density.Sparse]: -0.3,
   [Density.Normal]: 0,
   [Density.Dense]: 0.3,
-  [Density.PrimaryRoad]: -0.8,
-  [Density.SecondaryRoad]: -0.7,
-  [Density.TertiaryRoad]: -0.4,
-  [Density.Waterline]: -0.4
 } as const;
 
 export type Cell = {
@@ -63,7 +56,7 @@ export type Cell = {
   density: DensityType;
   burnDegree: 0 | 1 | 2 | 3;
 };
-export const MAX_BURN = 2;
+export const MAX_BURN = 1;
 
 export type DrawingBoard = {
   ctx: CanvasRenderingContext2D,

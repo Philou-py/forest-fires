@@ -1,4 +1,4 @@
-import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2, type Cell, createGrid, Vegetation, Density } from "$lib/fireGrid";
+import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2, type Cell, createGrid, Vegetation, Density, type VegWeightsType } from "$lib/fireGrid";
 import { createCanvas, createImageData } from "canvas";
 import { loadImages } from "$lib/mapLoading";
 import { getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
@@ -45,12 +45,14 @@ export type SimOptions = {
   baseProb: number;
   c1: number;
   c2: number;
+  vegWeights?: VegWeightsType;
 };
 
 // This function accepts the coordinates as an array coming from
 // the cellsOnFire set, in order to preserve referential equality.
 function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, number]) {
   const [row, col] = coords;
+  if (!options.vegWeights) options.vegWeights = vegWeights;
 
   for (const [rowOffset, colOffset, angle] of NEIGHBOURS) {
     const neighRow = row + rowOffset;
@@ -65,7 +67,7 @@ function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, n
 
       let prob =
         options.baseProb *
-        (1 + vegWeights[neighCell.veg]) *
+        (1 + options.vegWeights[neighCell.veg]) *
         (1 + densityWeights[neighCell.density]) *
         windEffect *
         slopeEffect;
@@ -79,10 +81,11 @@ function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, n
   }
 
   const cell = board.grid[row][col];
-  cell.burnDegree++;
   if (cell.burnDegree === MAX_BURN) {
     board.cellsOnFire.delete(coords);
     if (options.drawEachStep) drawCell(board, row, col);
+  } else {
+    cell.burnDegree++;
   }
 }
 

@@ -90,7 +90,7 @@
 
 <style>
 	.experiment {
-		margin: 50px 0;
+		margin: 50px 0 70px;
 	}
 
 	.launchBtns {

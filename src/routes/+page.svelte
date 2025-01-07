@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createGrid, drawCell, baseProb, c1, c2, Vegetation } from '$lib/fireGrid';
+	import { createGrid, drawCell, baseProb, c1, c2, Vegetation, vegWeights } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
 	import { degToRad, setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
 	import { loadImages } from '$lib/mapLoading';
@@ -17,6 +17,11 @@
 	let windSpeed = $state(0); // m/s
 	let windDirDeg = $state(15);
 	let windDir = $derived(degToRad(windDirDeg));
+
+	let expBaseProb = $state(baseProb);
+	let expC1 = $state(c1);
+	let expC2 = $state(c2);
+	let expVegWeights = $state(vegWeights);
 
 	let pixelThickness = $state(3);
 
@@ -104,12 +109,13 @@
 
 		const options: SimOptions = {
 			drawEachStep: true,
-			stepInterval: 10,
-			baseProb,
+			stepInterval: 5,
+			baseProb: expBaseProb,
 			windSpeed,
 			windDir,
-			c1,
-			c2
+			c1: expC1,
+			c2: expC2,
+			vegWeights: $state.snapshot(expVegWeights)
 		};
 		const { elapsed, nbSteps } = await simulate(board, options);
 		console.log(`Simulation finished in ${elapsed / 1000} seconds and ${nbSteps} steps.`);
@@ -182,7 +188,86 @@
 </script>
 
 <section class="fireGrid">
-	<div class="canvasControls">
+	<div class="controls">
+		<fieldset disabled={ongoingExp}>
+			<legend>Constantes</legend>
+
+			<label>
+				Probabilité de base
+				<input type="number" bind:value={expBaseProb} />
+			</label>
+
+			<div class="inline">
+				<label>
+					C1
+					<input type="number" step="any" bind:value={expC1} />
+				</label>
+
+				<label>
+					C2
+					<input type="number" step="any" bind:value={expC2} />
+				</label>
+			</div>
+		</fieldset>
+		
+		<fieldset disabled={ongoingExp}>
+			<legend>Poids attribués</legend>
+
+			<label>
+				Aucune végétation
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.NoVeg]} />
+			</label>
+
+			<label>
+				Agriculture
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Agriculture]} />
+			</label>
+
+			<label>
+				Forêt
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Forests]} />
+			</label>
+
+			<label>
+				Arbustaie
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Shrublands]} />
+			</label>
+
+			<label>
+				Route principale
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.PrimaryRoad]} />
+			</label>
+
+			<label>
+				Route secondaire
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.SecondaryRoad]} />
+			</label>
+
+			<label>
+				Route tertiaire
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.TertiaryRoad]} />
+			</label>
+
+			<label>
+				Cours d&rsquo;eau
+				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Waterline]} />
+			</label>
+		</fieldset>
+	</div>
+
+	<div class="canvasContainer" style="aspect-ratio: 1">
+		<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}
+			>&#8594;</span
+		>
+		<!-- Set very high values to avoid layout shift when resizing -->
+		<canvas bind:this={canvas} height={2000} width={2000}></canvas>
+
+		{#if ongoingExp}
+			<span class="simulationMsg">Simulation en cours...</span>
+		{/if}
+	</div>
+
+	<div class="controls">
 		<fieldset disabled={ongoingExp}>
 			<legend>Paramètres</legend>
 
@@ -202,6 +287,25 @@
 			</label>
 		</fieldset>
 
+		<div class="actions">
+			<button disabled={ongoingExp} onclick={genFullForestGrid} style="color: forestgreen">
+				Boiser (b)
+			</button>
+			<button disabled={ongoingExp} onclick={loadMaps} style="color: darkslateblue">
+				Charger le terrain (c)
+			</button>
+			<button disabled={ongoingExp} onclick={resetCanvas} style="color: #414141">
+				Réinitialiser (r)
+			</button>
+			<button
+				disabled={ongoingExp}
+				onclick={startSim}
+				style="font-size: 1.1em; font-weight: bold; color: darkcyan"
+			>
+				Simuler (s)
+			</button>
+		</div>
+
 		<form onsubmit={resizeCanvas}>
 			<fieldset disabled={ongoingExp}>
 				<legend>Dimensions</legend>
@@ -219,37 +323,6 @@
 				<button>Redimensionner</button>
 			</fieldset>
 		</form>
-	</div>
-
-	<div class="canvasContainer" style="aspect-ratio: 1">
-		<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}
-			>&#8594;</span
-		>
-		<!-- Set very high values to avoid layout shift when resizing -->
-		<canvas bind:this={canvas} height={2000} width={2000}></canvas>
-
-		{#if ongoingExp}
-			<span class="simulationMsg">Simulation en cours...</span>
-		{/if}
-	</div>
-
-	<div class="actions">
-		<button disabled={ongoingExp} onclick={genFullForestGrid} style="color: forestgreen">
-			Boiser (b)
-		</button>
-		<button disabled={ongoingExp} onclick={loadMaps} style="color: darkslateblue">
-			Charger le terrain (c)
-		</button>
-		<button disabled={ongoingExp} onclick={resetCanvas} style="color: #414141">
-			Réinitialiser (r)
-		</button>
-		<button
-			disabled={ongoingExp}
-			onclick={startSim}
-			style="font-size: 1.1em; margin-top: 30px; color: darkcyan"
-		>
-			Simuler (s)
-		</button>
 	</div>
 </section>
 
@@ -328,14 +401,19 @@
 		}
 	}
 
-	button {
-		display: block;
-		padding: 5px 8px;
-	}
-
-	.canvasControls {
+	.controls {
 		width: 20%;
 		margin: auto 10px;
+
+		.inline {
+			display: flex;
+			gap: 10px;
+			margin: 15px 0;
+
+			label {
+				margin: 0;
+			}
+		}
 
 		fieldset {
 			margin: 1em 0;
@@ -354,17 +432,14 @@
 		}
 
 		button {
+			display: block;
 			margin: 0 auto;
+			padding: 5px 8px;
 		}
 	}
 
-	.actions {
-		width: 20%;
-		margin: auto 10px;
-
-		button {
-			margin: 15px auto;
-		}
+	.actions button {
+		margin: 15px auto;
 	}
 
 	h1 {
@@ -373,7 +448,7 @@
 
 	.experiments {
 		width: 90%;
-		margin: 50px auto;
+		margin: 0 auto;
 		text-align: justify;
 	}
 </style>
