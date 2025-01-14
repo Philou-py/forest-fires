@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createGrid, drawCell, baseProb, c1, c2, Vegetation, vegWeights } from '$lib/fireGrid';
+	import { createGrid, baseProb, c1, c2, Vegetation, vegWeights, fillNoVeg } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
 	import { degToRad, setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
-	import { loadImages } from '$lib/mapLoading';
+	import { loadForestWithDensity, loadImages } from '$lib/mapLoading';
 	import { getBurnPercentage, getBurntVegTypes, getFireCentre } from '$lib/results';
 	import ResultsDisplay from './ResultsDisplay.svelte';
 	import Experiment from './Experiment.svelte';
@@ -23,7 +23,10 @@
 	let expC2 = $state(c2);
 	let expVegWeights = $state(vegWeights);
 
-	let pixelThickness = $state(3);
+	let pixelThickness = $state(1);
+	let useDensity = $state(true);
+	let placingFire = $state(false);
+	let firePos = $state<[] | [number, number]>([]);
 
 	let height = $state(800);
 	let width = $state(800);
@@ -62,46 +65,55 @@
 		resetCanvas();
 	}
 
-	function drawGrid() {
-		for (let row = 0; row < height; row++) {
-			for (let col = 0; col < width; col++) {
-				drawCell(board, row, col);
-			}
+	async function genForestGrid() {
+		if (useDensity) {
+			const newBoard = await loadForestWithDensity(width, height, canvasWidth, canvasHeight);
+			board.grid = newBoard.grid;
+			board.imageData = newBoard.imageData;
+		} else {
+			board.grid = createGrid(width, height, Vegetation.Forests);
+			fillNoVeg(board);
 		}
-		board.ctx.putImageData(board.imageData, 0, 0);
-	}
-
-	function genFullForestGrid() {
-		board.grid = createGrid(width, height, Vegetation.Forests);
-		setFire(board);
-		drawGrid();
+		firePos = setFire(board);
 	}
 
 	function resetCanvas() {
+		firePos = [];
 		board.imageData = board.ctx.createImageData(canvasWidth, canvasHeight);
 		board.ctx.putImageData(board.imageData, 0, 0);
 	}
 
 	async function loadMaps() {
-		// const searchParams = new URLSearchParams();
-		// searchParams.set("width", width.toString());
-		// searchParams.set("height", height.toString());
-		// searchParams.set("canvasWidth", canvasWidth.toString());
-		// searchParams.set("height", height.toString());
-		// searchParams.set("canvasHeight", canvasHeight.toString());
-		// searchParams.set("pixelThickness", pixelThickness.toString());
-
-		// const response = await fetch(`/api/load-maps?${searchParams}`)
-		// const result = await response.json();
-		// const arr = new Uint8ClampedArray(result.imageDataArray);
-
-		// board.imageData = new ImageData(arr, canvasWidth, canvasHeight);
-		// board.grid = result.grid;
-
-		const newBoard = await loadImages(width, height, canvasWidth, canvasHeight, pixelThickness);
+		const newBoard = await loadImages(
+			width,
+			height,
+			canvasWidth,
+			canvasHeight,
+			pixelThickness,
+			useDensity
+		);
 		board.grid = newBoard.grid;
 		board.imageData = newBoard.imageData;
-		setFire(board);
+		firePos = setFire(board);
+	}
+
+	function placeFire(event: MouseEvent) {
+		if (!placingFire) return;
+
+		const boundingRect = canvas.getBoundingClientRect();
+		const scaleX = board.width / boundingRect.width;
+		const scaleY = board.height / boundingRect.height;
+
+		firePos = [
+			Math.floor((event.clientY - boundingRect.top) * scaleY),
+			Math.floor((event.clientX - boundingRect.left) * scaleX)
+		];
+		setFire(board, ...firePos);
+		placingFire = false;
+	}
+
+	function toggleChooseFireLoc() {
+		placingFire = !placingFire;
 	}
 
 	async function startSim() {
@@ -119,7 +131,6 @@
 		};
 		const { elapsed, nbSteps } = await simulate(board, options);
 		console.log(`Simulation finished in ${elapsed / 1000} seconds and ${nbSteps} steps.`);
-		console.log('Fire centre:', getFireCentre(board));
 
 		const simResult: SimResult = {
 			nbSteps,
@@ -128,6 +139,7 @@
 			fireCentre: getFireCentre(board)
 		};
 		runs.push(simResult);
+		firePos = [];
 		ongoingExp = false;
 	}
 
@@ -163,13 +175,17 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		if ((e.target as HTMLElement).tagName === 'INPUT' || ongoingExp) return;
+		if (placingFire && e.code !== 'KeyF') return;
 
 		switch (e.code) {
 			case 'KeyB':
-				genFullForestGrid();
+				genForestGrid();
 				break;
 			case 'KeyC':
 				loadMaps();
+				break;
+			case 'KeyF':
+				toggleChooseFireLoc();
 				break;
 			case 'KeyR':
 				resetCanvas();
@@ -194,7 +210,7 @@
 
 			<label>
 				Probabilité de base
-				<input type="number" bind:value={expBaseProb} />
+				<input type="number" step="any" bind:value={expBaseProb} />
 			</label>
 
 			<div class="inline">
@@ -209,65 +225,59 @@
 				</label>
 			</div>
 		</fieldset>
-		
+
 		<fieldset disabled={ongoingExp}>
 			<legend>Poids attribués</legend>
 
-			<label>
-				Aucune végétation
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.NoVeg]} />
-			</label>
+			<div class="inline">
+				<label>
+					Désert
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.NoVeg]} />
+				</label>
 
-			<label>
-				Agriculture
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Agriculture]} />
-			</label>
+				<label>
+					Agriculture
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.Agriculture]} />
+				</label>
+			</div>
 
-			<label>
-				Forêt
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Forests]} />
-			</label>
+			<div class="inline">
+				<label>
+					Forêt
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.Forests]} />
+				</label>
 
-			<label>
-				Arbustaie
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Shrublands]} />
-			</label>
+				<label>
+					Arbustaie
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.Shrublands]} />
+				</label>
+			</div>
 
-			<label>
-				Route principale
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.PrimaryRoad]} />
-			</label>
+			<div class="inline">
+				<label>
+					Route 1
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.PrimaryRoad]} />
+				</label>
 
-			<label>
-				Route secondaire
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.SecondaryRoad]} />
-			</label>
+				<label>
+					Route 2
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.SecondaryRoad]} />
+				</label>
+			</div>
 
-			<label>
-				Route tertiaire
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.TertiaryRoad]} />
-			</label>
+			<div class="inline">
+				<label>
+					Route 3
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.TertiaryRoad]} />
+				</label>
 
-			<label>
-				Cours d&rsquo;eau
-				<input type="number" step="any" bind:value={expVegWeights[Vegetation.Waterline]} />
-			</label>
+				<label>
+					Eau
+					<input type="number" step="any" bind:value={expVegWeights[Vegetation.Waterline]} />
+				</label>
+			</div>
 		</fieldset>
-	</div>
 
-	<div class="canvasContainer" style="aspect-ratio: 1">
-		<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}
-			>&#8594;</span
-		>
-		<!-- Set very high values to avoid layout shift when resizing -->
-		<canvas bind:this={canvas} height={2000} width={2000}></canvas>
-
-		{#if ongoingExp}
-			<span class="simulationMsg">Simulation en cours...</span>
-		{/if}
-	</div>
-
-	<div class="controls">
 		<fieldset disabled={ongoingExp}>
 			<legend>Paramètres</legend>
 
@@ -280,31 +290,72 @@
 				Direction du vent (deg)
 				<input type="number" min={0} max={359} bind:value={windDirDeg} />
 			</label>
+		</fieldset>
+	</div>
+
+	<div class="canvasContainer" style="aspect-ratio: 1">
+		<span class="windArrow" style={`transform: rotate(${-windDir}rad); translateX(-50%)`}
+			>&#8594;</span
+		>
+		<!-- Set very high values to avoid layout shift when resizing -->
+		<canvas bind:this={canvas} height={2000} width={2000} onclick={placeFire}></canvas>
+
+		{#if ongoingExp}
+			<span class="msg">Simulation en cours...</span>
+		{/if}
+
+		{#if placingFire}
+			<span class="msg">Cliquer sur la grille</span>
+		{/if}
+	</div>
+
+	<div class="controls">
+		<button
+			disabled={ongoingExp || placingFire}
+			onclick={startSim}
+			class="simBtn"
+			style="width: 100%; font-size: 1.1em; font-weight: bold; color: darkcyan"
+		>
+			Simuler (s)
+		</button>
+
+		<fieldset disabled={ongoingExp}>
+			<legend>Carte</legend>
 
 			<label>
-				Épaisseur des pixels
+				Emplacement du feu
+
+				<div class="inline">
+					<input type="number" min={0} max={height} bind:value={firePos[0]} />
+					<input type="number" min={0} max={height} bind:value={firePos[1]} />
+					<button onclick={toggleChooseFireLoc} style="margin: 0">
+						{#if !placingFire}Choisir{:else}Annuler{/if}
+					</button>
+				</div>
+			</label>
+
+			<label>
+				Épaisseur des traits
 				<input type="number" min={1} max={30} bind:value={pixelThickness} />
 			</label>
-		</fieldset>
 
-		<div class="actions">
-			<button disabled={ongoingExp} onclick={genFullForestGrid} style="color: forestgreen">
+			<label>
+				Inclure la densité
+				<input type="checkbox" bind:checked={useDensity} />
+			</label>
+
+			<button disabled={placingFire} onclick={genForestGrid} style="color: forestgreen">
 				Boiser (b)
 			</button>
-			<button disabled={ongoingExp} onclick={loadMaps} style="color: darkslateblue">
-				Charger le terrain (c)
-			</button>
-			<button disabled={ongoingExp} onclick={resetCanvas} style="color: #414141">
+
+			<button disabled={placingFire} onclick={resetCanvas} style="color: #414141">
 				Réinitialiser (r)
 			</button>
-			<button
-				disabled={ongoingExp}
-				onclick={startSim}
-				style="font-size: 1.1em; font-weight: bold; color: darkcyan"
-			>
-				Simuler (s)
+
+			<button disabled={placingFire} onclick={loadMaps} style="color: darkslateblue">
+				Charger le terrain (c)
 			</button>
-		</div>
+		</fieldset>
 
 		<form onsubmit={resizeCanvas}>
 			<fieldset disabled={ongoingExp}>
@@ -378,7 +429,7 @@
 		left: 50%;
 	}
 
-	.simulationMsg {
+	.msg {
 		position: absolute;
 		font-size: 1.3em;
 		bottom: -1.2em;
@@ -411,11 +462,14 @@
 			margin: 15px 0;
 
 			label {
+				flex: 1 1 0;
 				margin: 0;
 			}
 		}
 
 		fieldset {
+			padding-top: 0;
+			padding-bottom: 0;
 			margin: 1em 0;
 		}
 
@@ -431,15 +485,18 @@
 			margin: 5px 0;
 		}
 
+		input[type='checkbox'] {
+			width: 1.3em;
+			height: 1.3em;
+			vertical-align: middle;
+			margin: 0 0.5em;
+		}
+
 		button {
 			display: block;
-			margin: 0 auto;
+			margin: 15px auto;
 			padding: 5px 8px;
 		}
-	}
-
-	.actions button {
-		margin: 15px auto;
 	}
 
 	h1 {

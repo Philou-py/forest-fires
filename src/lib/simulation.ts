@@ -20,16 +20,23 @@ export const NEIGHBOURS = [
   [0, -1, Math.PI]
 ];
 
-export function setFire(board: DrawingBoard, row?: number, col?: number) {
+export function setFire(board: DrawingBoard, row?: number, col?: number): [number, number] {
+  board.cellsOnFire.forEach(([row, col]) => {
+    board.grid[row][col].burnDegree = 0;
+    drawCell(board, row, col);
+  });
   board.cellsOnFire.clear();
+
   if (row === undefined || col === undefined) {
-    row = board.height / 2;
-    col = board.width / 2;
+    row = board.height / 2 + 170;
+    col = board.width / 2 - 230;
   }
   board.grid[row][col].burnDegree = 1;
   board.cellsOnFire.add([row, col]);
   drawCell(board, row, col);
   board.ctx.putImageData(board.imageData, 0, 0);
+
+  return [row, col];
 }
 
 function sleep(millis: number) {
