@@ -120,7 +120,8 @@ export async function loadForestWithDensity(width: number, height: number, canva
   return drawingBoard;
 }
 
-export async function loadImages(width: number, height: number, canvasWidth: number, canvasHeight: number, pixelThickness: number, withDensity: boolean = true) {
+export async function loadImages(width: number, height: number, canvasWidth: number, canvasHeight: number,
+  pixelThickness: number, maps: ("vegetation" | "density" | "roads" | "waterlines")[]) {
   const canvas = createCanvas(width, height);
 
   const drawingBoard: DrawingBoard = {
@@ -136,10 +137,10 @@ export async function loadImages(width: number, height: number, canvasWidth: num
     cellWidth: Math.max(1, Math.floor(canvasWidth / width)),
   };
 
-  await loadGridFromImg(drawingBoard, vegMap, vegMapping, "vegBg", pixelThickness);
-  await loadGridFromImg(drawingBoard, roadsMap, roadsMapping, "vegFg", pixelThickness);
-  await loadGridFromImg(drawingBoard, waterlinesMap, waterMapping, "vegFg", pixelThickness);
-  if (withDensity) await loadGridFromImg(drawingBoard, densityMap, densityMapping, "density");
+  if (maps.includes("vegetation")) await loadGridFromImg(drawingBoard, vegMap, vegMapping, "vegBg", pixelThickness);
+  if (maps.includes("roads")) await loadGridFromImg(drawingBoard, roadsMap, roadsMapping, "vegFg", pixelThickness);
+  if (maps.includes("waterlines")) await loadGridFromImg(drawingBoard, waterlinesMap, waterMapping, "vegFg", pixelThickness);
+  if (maps.includes("density")) await loadGridFromImg(drawingBoard, densityMap, densityMapping, "density");
 
   // Also calls 'drawCell' for each cell in the grid and 'putImageData'
   fillNoVeg(drawingBoard);

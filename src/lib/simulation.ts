@@ -1,4 +1,4 @@
-import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2, type Cell, createGrid, Vegetation, Density, type VegWeightsType } from "$lib/fireGrid";
+import { vegWeights, densityWeights, drawCell, type DrawingBoard, MAX_BURN, baseProb, c1, c2, Vegetation, type VegWeightsType } from "$lib/fireGrid";
 import { createCanvas, createImageData } from "canvas";
 import { loadImages } from "$lib/mapLoading";
 import { getBurnPercentage, getBurntVegTypes, getFireCentre } from "./results";
@@ -28,8 +28,8 @@ export function setFire(board: DrawingBoard, row?: number, col?: number): [numbe
   board.cellsOnFire.clear();
 
   if (row === undefined || col === undefined) {
-    row = board.height / 2 + 170;
-    col = board.width / 2 - 230;
+    row = board.height / 2;
+    col = board.width / 2;
   }
   board.grid[row][col].burnDegree = 1;
   board.cellsOnFire.add([row, col]);
@@ -52,14 +52,13 @@ export type SimOptions = {
   baseProb: number;
   c1: number;
   c2: number;
-  vegWeights?: VegWeightsType;
+  vegWeights: VegWeightsType;
 };
 
 // This function accepts the coordinates as an array coming from
 // the cellsOnFire set, in order to preserve referential equality.
 function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, number]) {
   const [row, col] = coords;
-  if (!options.vegWeights) options.vegWeights = vegWeights;
 
   for (const [rowOffset, colOffset, angle] of NEIGHBOURS) {
     const neighRow = row + rowOffset;
@@ -122,9 +121,27 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
   };
 }
 
+export type ExpConfig = {
+  nbIters?: number,
+  startVal?: number,
+  width?: number,
+  height?: number,
+  maps?: ("vegetation" | "density" | "roads" | "waterlines")[],
+  pixelThickness?: number,
+  useDensity: boolean,
+  firePos?: [number, number],
+  simOptions?: Partial<SimOptions>,
+  variable: string,
+  min: number,
+  max?: number,
+  step: number,
+  labelFormat: string,
+};
+
 export type SimResult = {
   nbSteps: number;
   burnPerc: number;
+  // Vegetation name, index and burn percentage if it exists
   burnPercByVegType: [string, number, number | null][];
   fireCentre: [number, number];
 };
@@ -135,15 +152,30 @@ export type ExpResults = {
   nextExp?: number;
 };
 
-export async function exp1(nbIters: number, startVal: number): Promise<ExpResults> {
-  const width = 800, height = 800;
-  const canvas = createCanvas(800, 800);
+export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
+  if (!expConfig.nbIters) expConfig.nbIters = 5;
+  if (!expConfig.startVal) expConfig.startVal = 0;
+  if (!expConfig.simOptions) expConfig.simOptions = {}
+  if (!expConfig.simOptions.windSpeed) expConfig.simOptions.windSpeed = 0;
+  if (!expConfig.simOptions.windDir) expConfig.simOptions.windDir = 0;
+  if (!expConfig.simOptions.baseProb) expConfig.simOptions.baseProb = baseProb;
+  if (!expConfig.simOptions.c1) expConfig.simOptions.c1 = c1;
+  if (!expConfig.simOptions.c2) expConfig.simOptions.c2 = c2;
+  if (!expConfig.simOptions.vegWeights) expConfig.simOptions.vegWeights = vegWeights;
+  if (!expConfig.maps) expConfig.maps = ["vegetation", "roads", "waterlines"]
+  if (expConfig.useDensity) expConfig.maps.push("density");
 
-  const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
+  const width = expConfig.width ?? 800, height = expConfig.height ?? 800;
+  const canvas = createCanvas(width, height);
 
-  const windSpeeds = [...Array(nbIters).keys()].map((i) => 2 * i + startVal);
+  const initialBoard: DrawingBoard = await loadImages(width, height, width, height, expConfig.pixelThickness ?? 1, expConfig.maps);
 
-  const runs = windSpeeds.map(async (windSpeed) => {
+  const expComplete = expConfig.max ? expConfig.startVal + expConfig.step * expConfig.nbIters >= expConfig.max : false;
+  const testVals =
+    [...Array(expComplete ? (expConfig.max! - expConfig.startVal) / expConfig.step : expConfig.nbIters).keys()]
+      .map((i) => expConfig.step * i + expConfig.startVal!);
+
+  const runs = testVals.map(async (testVal) => {
     const board: DrawingBoard = {
       ctx: canvas.getContext("2d"),
       imageData: createImageData(width, height),
@@ -156,67 +188,17 @@ export async function exp1(nbIters: number, startVal: number): Promise<ExpResult
       cellWidth: 1,
       cellHeight: 1,
     };
-    setFire(board);
+    if (expConfig.firePos) setFire(board, ...expConfig.firePos);
+    else setFire(board);
 
-    const options: SimOptions = {
-      baseProb,
-      c1,
-      c2,
-      windSpeed,
-      windDir: 0,
-    };
+    if (expConfig.variable.startsWith("vegWeights")) {
+      const variable = expConfig.variable.split(".")[1] as keyof typeof Vegetation;
+      expConfig.simOptions!.vegWeights![Vegetation[variable]] = testVal;
+    } else {
+      expConfig.simOptions![expConfig.variable as keyof SimOptions] = testVal as never;
+    }
 
-    const { nbSteps } = await simulate(board, options);
-
-    return {
-      nbSteps,
-      burnPerc: getBurnPercentage(board),
-      burnPercByVegType: getBurntVegTypes(board),
-      fireCentre: getFireCentre(board),
-    };
-  });
-
-  return {
-    runs: await Promise.all(runs),
-    labels: windSpeeds.map((speed) => `${speed} m/s`),
-    nextExp: startVal + nbIters * 2
-  };
-}
-
-// Test impact of the wind direction in a homogeneous map
-export async function exp2(nbIters: number, startVal: number): Promise<ExpResults> {
-  const width = 800, height = 800;
-  const canvas = createCanvas(800, 800);
-
-  const initialGrid: Cell[][] = createGrid(width, height, Vegetation.Forests, Density.Normal);
-
-  const turnComplete = startVal + 10 * nbIters >= 360;
-  const windDirs = [...Array(turnComplete ? (360 - startVal) / 10 : nbIters).keys()].map((i) => 10 * i + startVal);
-
-  const runs = windDirs.map(async (windDir) => {
-    const board: DrawingBoard = {
-      ctx: canvas.getContext("2d"),
-      imageData: createImageData(width, height),
-      grid: structuredClone(initialGrid),
-      cellsOnFire: new Set(),
-      width,
-      height,
-      canvasWidth: width,
-      canvasHeight: height,
-      cellWidth: 1,
-      cellHeight: 1,
-    };
-    setFire(board);
-
-    const options: SimOptions = {
-      baseProb,
-      c1,
-      c2,
-      windSpeed: 0,
-      windDir: degToRad(windDir),
-    };
-
-    const { nbSteps } = await simulate(board, options);
+    const { nbSteps } = await simulate(board, expConfig.simOptions as SimOptions);
 
     return {
       nbSteps,
@@ -228,58 +210,38 @@ export async function exp2(nbIters: number, startVal: number): Promise<ExpResult
 
   return {
     runs: await Promise.all(runs),
-    labels: windDirs.map((dir) => `${dir}°`),
-    nextExp: turnComplete ? undefined : startVal + 10 * nbIters,
+    labels: testVals.map((v) => expConfig.labelFormat.replace("%s", (Math.round(v * 100) / 100).toString())),
+    nextExp: expComplete ? undefined : expConfig.startVal + expConfig.step * expConfig.nbIters
   };
 }
 
-// Test impact of the wind direction in a complex map
-export async function exp3(nbIters: number, startVal: number): Promise<ExpResults> {
-  const width = 800, height = 800;
-  const canvas = createCanvas(800, 800);
+export const exp1Config: ExpConfig = {
+  nbIters: 5,
+  useDensity: true,
+  variable: "windSpeed",
+  min: 0,
+  step: 0.5,
+  labelFormat: "%s m/s",
+};
 
-  const initialBoard: DrawingBoard = await loadImages(width, height, width, height, 1);
+export const exp2Config: ExpConfig = {
+  nbIters: 5,
+  maps: [],
+  useDensity: false,
+  variable: "windDir",
+  min: 0,
+  max: 360,
+  step: 10,
+  labelFormat: "%s°",
+};
 
-  const turnComplete = startVal + 10 * nbIters >= 360;
-  const windDirs = [...Array(turnComplete ? (360 - startVal) / 10 : nbIters).keys()].map((i) => 10 * i + startVal);
-
-  const runs = windDirs.map(async (windDir) => {
-    const board: DrawingBoard = {
-      ctx: canvas.getContext("2d"),
-      imageData: createImageData(width, height),
-      grid: structuredClone(initialBoard.grid),
-      cellsOnFire: new Set(),
-      width,
-      height,
-      canvasWidth: width,
-      canvasHeight: height,
-      cellWidth: 1,
-      cellHeight: 1,
-    };
-    setFire(board);
-
-    const options: SimOptions = {
-      baseProb,
-      c1,
-      c2,
-      windSpeed: 0,
-      windDir: degToRad(windDir),
-    };
-
-    const { nbSteps } = await simulate(board, options);
-
-    return {
-      nbSteps,
-      burnPerc: getBurnPercentage(board),
-      burnPercByVegType: getBurntVegTypes(board),
-      fireCentre: getFireCentre(board),
-    };
-  });
-
-  return {
-    runs: await Promise.all(runs),
-    labels: windDirs.map((dir) => `${dir}°`),
-    nextExp: turnComplete ? undefined : startVal + 10 * nbIters,
-  };
-}
+export const exp3Config: ExpConfig = {
+  nbIters: 5,
+  useDensity: true,
+  variable: "windDir",
+  min: 0,
+  max: 360,
+  step: 10,
+  labelFormat: "%s°",
+};
 

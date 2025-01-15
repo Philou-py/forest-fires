@@ -2,7 +2,16 @@
 	import { onMount } from 'svelte';
 	import { createGrid, baseProb, c1, c2, Vegetation, vegWeights, fillNoVeg } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
-	import { degToRad, setFire, simulate, type SimOptions, type SimResult } from '$lib/simulation';
+	import {
+		degToRad,
+		exp1Config,
+		exp2Config,
+		exp3Config,
+		setFire,
+		simulate,
+		type SimOptions,
+		type SimResult
+	} from '$lib/simulation';
 	import { loadForestWithDensity, loadImages } from '$lib/mapLoading';
 	import { getBurnPercentage, getBurntVegTypes, getFireCentre } from '$lib/results';
 	import ResultsDisplay from './ResultsDisplay.svelte';
@@ -84,14 +93,12 @@
 	}
 
 	async function loadMaps() {
-		const newBoard = await loadImages(
-			width,
-			height,
-			canvasWidth,
-			canvasHeight,
-			pixelThickness,
-			useDensity
-		);
+		const newBoard = await loadImages(width, height, canvasWidth, canvasHeight, pixelThickness, [
+			'vegetation',
+			'roads',
+			'waterlines',
+			...(useDensity ? ['density' as 'density'] : [])
+		]);
 		board.grid = newBoard.grid;
 		board.imageData = newBoard.imageData;
 		firePos = setFire(board);
@@ -105,6 +112,7 @@
 		const scaleY = board.height / boundingRect.height;
 
 		firePos = [
+			// Account for the border width
 			Math.floor((event.clientY - boundingRect.top) * scaleY),
 			Math.floor((event.clientX - boundingRect.left) * scaleX)
 		];
@@ -393,24 +401,21 @@
 	{/if}
 
 	<Experiment
-		expNb={1}
 		expTitle="Effet de la vitesse du vent"
-		expDescription="Dans cette expérience, les simulations sont lancées avec des vitesses de vent croissantes, avec des valeurs allant de deux en deux."
-		initialVal={0}
+		expDescription="Dans cette expérience, les simulations sont lancées avec des vitesses de vent croissantes, avec des valeurs allant de 0.5 en 0.5."
+		initialConfig={exp1Config}
 	/>
 
 	<Experiment
-		expNb={2}
 		expTitle="Effet de la direction du vent - terrain homogène"
 		expDescription="La direction du vent joue un rôle crucial dans la propagation du feu. Il est néanmoins important de contrôler qu'elle n'a pas d'influence dans un milieu où la végétation est homogène."
-		initialVal={0}
+		initialConfig={exp2Config}
 	/>
 
 	<Experiment
-		expNb={3}
 		expTitle="Effet de la direction du vent - terrain quelconque"
 		expDescription="On teste maintenant les caractéristiques d'un terrain particulier, afin de connaître les directions privilégiées de propagation du feu."
-		initialVal={0}
+		initialConfig={exp3Config}
 	/>
 </div>
 

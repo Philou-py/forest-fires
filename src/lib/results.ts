@@ -53,3 +53,35 @@ export function getFireCentre(board: DrawingBoard): [number, number] {
 	return [rowSum / burntCells, colSum / burntCells];
 }
 
+// Implements the moving average algorithm with a sampling width of 2 * radius + 1
+export function smoothData(data: any[], readData: (i: number) => number, setData: (i: number, val: number) => void, radius: number) {
+	// Keeps track of the number of values summed in 'currentSum'
+	let width = Math.min(data.length, radius);
+
+	let currentSum = 0;
+	for (let i = 0; i < width; i++) currentSum += readData(i);
+
+	for (let i = 0; i < data.length; i++) {
+		if (i + radius < data.length) {
+			currentSum += readData(i + radius);
+			width++;
+		}
+		if (i > radius) {
+			currentSum -= readData(i - radius - 1);
+			width--;
+		}
+		setData(i, currentSum / width);
+	}
+
+	let steepestSlope = 0;
+	let steepestAxis = 0;
+	for (let i = 0; i < data.length - 1; i++) {
+		const slope = Math.abs(readData(i + 1) - readData(i));
+		if (slope > steepestSlope) {
+			steepestSlope = slope;
+			steepestAxis = i;
+		}
+	}
+	return [steepestSlope, steepestAxis];
+}
+

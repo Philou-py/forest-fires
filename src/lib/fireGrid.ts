@@ -34,7 +34,7 @@ export const vegWeights = {
   [Vegetation.SecondaryRoad]: -0.6,
   [Vegetation.TertiaryRoad]: -0.5,
   [Vegetation.Waterline]: -0.8
-} as const;
+};
 
 export const Density = {
   NoVeg: 0,

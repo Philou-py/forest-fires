@@ -2,16 +2,17 @@
 	import ResultsDisplay from './ResultsDisplay.svelte';
 
 	interface Props {
-		expNb: number;
 		expTitle: string;
 		expDescription: string;
-		initialVal: number;
+		initialConfig: ExpConfig;
 		compactDisp?: boolean;
 	}
-	import type { ExpResults, SimResult } from '$lib/simulation';
+	import type { ExpConfig, ExpResults, SimResult } from '$lib/simulation';
 	import { tick } from 'svelte';
+	import { smoothData } from '$lib/results';
+	import { Vegetation } from '$lib/fireGrid';
 
-	let { expNb, expTitle, expDescription, initialVal, compactDisp }: Props = $props();
+	let { expTitle, expDescription, initialConfig, compactDisp }: Props = $props();
 
 	let resultsDiv: HTMLDivElement;
 
@@ -20,19 +21,22 @@
 	let shouldReset = $state(false);
 	let runs: SimResult[] = $state([]);
 	let labels: string[] = $state([]);
-	let startVal: number | undefined = $state(initialVal);
-	let nbIters = $state(5);
+	let config: ExpConfig = $state(initialConfig);
 
 	async function fetchExpResults(restart?: boolean) {
 		ongoingExp = true;
 
 		if (restart) {
-			startVal = initialVal;
+			config.startVal = config.min;
 		}
 
-		const response = await fetch(
-			`/api/simulate/?expNb=${expNb}&nbIters=${nbIters}&startVal=${startVal}`
-		);
+		const response = await fetch(`/api/simulate/`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'applications/json'
+			},
+			body: JSON.stringify(config)
+		});
 		const results: ExpResults = await response.json();
 
 		if (restart) {
@@ -44,10 +48,49 @@
 		}
 		runs.push(...results.runs);
 		labels.push(...results.labels);
-		startVal = results.nextExp;
+		config.startVal = results.nextExp;
 		ongoingExp = false;
 		await tick();
 		resultsDiv.scrollIntoView();
+	}
+
+	async function smoothResults() {
+		// Force repaint of the data series
+		const originalReset = shouldReset;
+		shouldReset = true;
+		await tick();
+		const samplingWidth = Math.floor(runs.length / 10);
+
+		[...Array(Object.values(Vegetation).length - 1)].forEach((_, vegIndex) => {
+			if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
+			const vegName = runs[0].burnPercByVegType[vegIndex][0];
+
+			const [steepestSlope, steepestAxis] = smoothData(
+				runs,
+				(i) => runs[i].burnPercByVegType[vegIndex][2]!,
+				(i, v) => (runs[i].burnPercByVegType[vegIndex][2] = v),
+				samplingWidth
+			);
+			console.log(`Steepest slope of ${vegName}: ${steepestSlope} for ${labels[steepestAxis]}`);
+		});
+
+		const [burnSlope, burnAxis] = smoothData(
+			runs,
+			(i) => runs[i].burnPerc,
+			(i, v) => (runs[i].burnPerc = v),
+			samplingWidth
+		);
+		console.log(`Steepest slope of the burn percentage: ${burnSlope} for ${labels[burnAxis]}`);
+
+		const [stepSlope, stepAxis] = smoothData(
+			runs,
+			(i) => runs[i].nbSteps,
+			(i, v) => (runs[i].nbSteps = v),
+			samplingWidth
+		);
+		console.log(`Steepest slope of the step number: ${stepSlope} for ${labels[stepAxis]}`);
+
+		shouldReset = originalReset;
 	}
 </script>
 
@@ -61,18 +104,22 @@
 	<p>{expDescription}</p>
 
 	<div class="launchBtns">
-		<button disabled={ongoingExp} onclick={() => fetchExpResults(true)} style="color: rebeccapurple">
+		<button
+			disabled={ongoingExp}
+			onclick={() => fetchExpResults(true)}
+			style="color: rebeccapurple"
+		>
 			{runs.length > 0 ? 'Rel' : 'L'}ancer l&rsquo;expérience
 		</button>
 
 		<label class="nbSimsLabel">
 			Nombre de simulations
-			<input type="number" min={1} max={50} bind:value={nbIters} />
+			<input type="number" min={1} max={50} bind:value={config.nbIters} />
 		</label>
 
 		{#if runs.length > 0}
 			<button
-				disabled={ongoingExp || startVal === undefined}
+				disabled={ongoingExp || config.startVal === undefined}
 				onclick={() => fetchExpResults()}
 				style="color: lightseagreen"
 			>
@@ -84,6 +131,14 @@
 	<div bind:this={resultsDiv}>
 		{#if runs.length > 0}
 			<ResultsDisplay {runs} {labels} singleRow={compactDisp} {shouldReset} />
+
+			<button
+				disabled={ongoingExp}
+				onclick={smoothResults}
+				style="font-size: 1.1em; margin: 20px auto; display: block"
+			>
+				Lisser les résultats
+			</button>
 		{/if}
 	</div>
 </section>

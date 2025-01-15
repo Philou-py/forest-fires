@@ -236,8 +236,8 @@
 
 	.chart {
 		margin: 40px 0;
-		/* Fit four charts on one screen */
-		height: calc(25vh - 3/4 * 40px);
+		/* Fit exactly three charts on one screen */
+		height: calc(33vh - 2/3 * 40px);
 		min-height: 200px;
 		/* Recommended by Chart.js for responsive charts */
 		position: relative;
