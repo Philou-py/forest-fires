@@ -24,9 +24,11 @@
 	let config: ExpConfig = $state(initialConfig);
 
 	let slopes = $state({
-		byVegType: [...Array(7)].map(() => ["", "", -1]),
-		burntArea: ["", -1],
-		stepNb: ["", -1],
+		// For each vegetation type, store its name, the label of the point with the steepest slope
+		// and the value of the steepest slope
+		byVegType: [...Array(7)].map(() => ["", "", -1]) as [string, string, number][],
+		burntArea: ["", -1] as [string, number],
+		stepNb: ["", -1] as [string, number],
 		upToDate: true,
 	});
 
@@ -69,9 +71,11 @@
 		await tick();
 		const samplingWidth = Math.floor(runs.length / 10);
 
-		[...Array(Object.values(Vegetation).length - 1)].forEach((_, vegIndex) => {
+		Object.keys(Vegetation).slice(1).forEach((vegName) => {
+			const vegIndex = Vegetation[vegName as keyof typeof Vegetation] - 1;
+			console.log(vegName, vegIndex);
+			slopes.byVegType[vegIndex] = [vegName, "", NaN];
 			if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
-			const vegName = runs[0].burnPercByVegType[vegIndex][0];
 
 			const [steepestSlope, steepestAxis] = smoothData(
 				runs,

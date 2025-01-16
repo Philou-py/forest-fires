@@ -80,7 +80,7 @@ export const Colours = {
   [Vegetation.NoVeg]: [255, 255, 255, 255], // [146, 147, 147, 255] #929393 (concrete)
   [Vegetation.Forests]: [141, 227, 104, 255], // light green
   [Vegetation.Shrublands]: [220, 239, 78, 255], // yellow-green
-  [Vegetation.Agriculture]: [81, 210, 188, 255], // turquoise
+  [Vegetation.Agriculture]: [150, 75, 210, 255], // turquoise
   [Vegetation.PrimaryRoad]: [129, 104, 253, 255], // purple
   [Vegetation.SecondaryRoad]: [255, 208, 26, 255], // yellow
   [Vegetation.TertiaryRoad]: [62, 255, 62, 255], // bright green

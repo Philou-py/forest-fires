@@ -7,9 +7,9 @@ export function degToRad(angle: number) {
   return (angle * Math.PI) / 180;
 }
 
-// This list contains the relative position in the grid of neighbouring squares,
-// as well as the angle of the wind from a neighbour towards the center.
-export const NEIGHBOURS = [
+// These lists contains the relative position in the grid of neighbouring squares,
+// as well as the angle of the wind from the cell to its neighbour.
+export const MOORE = [
   [-1, -1, (3 * Math.PI) / 4],
   [-1, 0, Math.PI / 2],
   [-1, 1, Math.PI / 4],
@@ -17,6 +17,13 @@ export const NEIGHBOURS = [
   [1, 1, -Math.PI / 4],
   [1, 0, -Math.PI / 2],
   [1, -1, (-3 * Math.PI) / 4],
+  [0, -1, Math.PI]
+];
+
+export const VON_NEUMANN = [
+  [-1, 0, Math.PI / 2],
+  [0, 1, 0],
+  [1, 0, -Math.PI / 2],
   [0, -1, Math.PI]
 ];
 
@@ -44,6 +51,7 @@ function sleep(millis: number) {
 }
 
 export type SimOptions = {
+  neighbourhood: typeof MOORE | typeof VON_NEUMANN,
   // If set, the 'imageData' array will be updated when a cell is changed, and 'putImageData' will be called at each step.
   drawEachStep?: boolean;
   stepInterval?: number;
@@ -60,7 +68,7 @@ export type SimOptions = {
 function updateCell(board: DrawingBoard, options: SimOptions, coords: [number, number]) {
   const [row, col] = coords;
 
-  for (const [rowOffset, colOffset, angle] of NEIGHBOURS) {
+  for (const [rowOffset, colOffset, angle] of options.neighbourhood) {
     const neighRow = row + rowOffset;
     const neighCol = col + colOffset;
 
@@ -129,6 +137,7 @@ export type ExpConfig = {
   maps?: ("vegetation" | "density" | "roads" | "waterlines")[],
   pixelThickness?: number,
   useDensity: boolean,
+  neighbourhood?: "Von Neumann" | "Moore",
   firePos?: [number, number],
   simOptions?: Partial<SimOptions>,
   variable: string,
@@ -164,6 +173,9 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
   if (!expConfig.simOptions.vegWeights) expConfig.simOptions.vegWeights = vegWeights;
   if (!expConfig.maps) expConfig.maps = ["vegetation", "roads", "waterlines"]
   if (expConfig.useDensity) expConfig.maps.push("density");
+
+  if (expConfig.neighbourhood === "Von Neumann") expConfig.simOptions.neighbourhood = VON_NEUMANN;
+  else expConfig.simOptions.neighbourhood = MOORE;
 
   const width = expConfig.width ?? 800, height = expConfig.height ?? 800;
   const canvas = createCanvas(width, height);
@@ -216,12 +228,26 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 }
 
 export const exp1Config: ExpConfig = {
+  // If not specified, set to "Moore"
+  neighbourhood: "Von Neumann",
+  // If not specified: all maps are included
+  // Possible values contain "vegetation", "roads" and "waterlines"
+  maps: [],
+  // More than 40 iterations will probably crash (memory limit)
   nbIters: 5,
   useDensity: true,
+  // Any parameter in SimOptions (expect for 'neighbourhood', 'drawEachStep' and 'stepInterval')
+  // To make a value in 'vegWeights' vary, use the dot notation (ex: 'vegWeights.Agriculture')
   variable: "windSpeed",
   min: 0,
-  step: 0.5,
+  // max is optional
+  step: 1,
+  // '%s' will be replaced with the parameter
   labelFormat: "%s m/s",
+  // Any simulation option can be modified
+  simOptions: {
+    baseProb: 0.5,
+  }
 };
 
 export const exp2Config: ExpConfig = {

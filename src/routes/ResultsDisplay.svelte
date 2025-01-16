@@ -220,16 +220,14 @@
 	}
 </script>
 
-<div class:singleRow class:upToDate={slopes.upToDate}>
+<div class:singleRow class:outdated={!slopes.upToDate}>
 	<div class="chart">
 		<canvas bind:this={chartCanvas1}></canvas>
 	</div>
 
-	{#if slopes.byVegType[0][2] !== -1}
+	{#if slopes.byVegType[1][2] !== -1}
 		<table transition:slide={{ easing: cubicInOut }} class="slopesTable">
-			<caption>
-				Percolation du terrain brûlé par type de végétation
-			</caption>
+			<caption> Percolation du terrain brûlé par type de végétation </caption>
 
 			<thead>
 				<tr>
@@ -241,8 +239,12 @@
 
 			<tbody>
 				<tr>
-					{#each slopes.byVegType as [_, vegAxis, slope]}
-						<td>{vegAxis} (pente max&nbsp;: {round(slope * 100)})</td>
+					{#each slopes.byVegType as [vegName, vegAxis, slope] (vegName)}
+						<td>
+							{#if !Number.isNaN(slope)}
+								{vegAxis} (pente max&nbsp;: {round(slope)})
+							{/if}
+						</td>
 					{/each}
 				</tr>
 			</tbody>
@@ -255,17 +257,21 @@
 
 	{#if slopes.burntArea[1] !== -1}
 		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
-			Percolation du terrain brûlé pour {slopes.burntArea[0]} (pente max&nbsp;: {round(slopes.burntArea[1])}).
+			Percolation du terrain brûlé pour {slopes.burntArea[0]} (pente max&nbsp;: {round(
+				slopes.burntArea[1]
+			)}).
 		</p>
 	{/if}
 
 	<div class="chart">
 		<canvas bind:this={chartCanvas3}></canvas>
 	</div>
-	
+
 	{#if slopes.burntArea[1] !== -1}
 		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
-			Percolation du nombre d&rsquo;étapes pour {slopes.stepNb[0]} (pente max&nbsp;: {round(slopes.stepNb[1])}).
+			Percolation du nombre d&rsquo;étapes pour {slopes.stepNb[0]} (pente max&nbsp;: {round(
+				slopes.stepNb[1]
+			)}).
 		</p>
 	{/if}
 
@@ -282,6 +288,13 @@
 		.chart {
 			flex: 1 1 0;
 			height: 30vh;
+		}
+	}
+
+	.outdated {
+		.slopeText,
+		.slopesTable {
+			opacity: 0.4;
 		}
 	}
 
@@ -302,16 +315,19 @@
 		text-align: center;
 	}
 
-	table.slopesTable {
+	.slopesTable {
 		table-layout: fixed;
+		width: 100%;
 		border-collapse: collapse;
 		border: 1px solid black;
 
 		caption {
+			font-size: 1.1em;
 			padding: 10px 0;
 		}
 
-		th, td {
+		th,
+		td {
 			padding: 10px;
 			border: 1px solid black;
 			text-align: left;

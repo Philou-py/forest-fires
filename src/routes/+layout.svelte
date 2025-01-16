@@ -16,9 +16,11 @@
 		font-family: 'Space Mono';
 	}
 
-	:global(input) {
+	:global(input, select) {
+		box-sizing: border-box;
 		font-family: inherit;
 		font-size: 0.9em;
+		padding: 1px 2px;
 	}
 
 	:global(button) {

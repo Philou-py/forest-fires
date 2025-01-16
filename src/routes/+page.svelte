@@ -7,8 +7,10 @@
 		exp1Config,
 		exp2Config,
 		exp3Config,
+		MOORE,
 		setFire,
 		simulate,
+		VON_NEUMANN,
 		type SimOptions,
 		type SimResult
 	} from '$lib/simulation';
@@ -32,6 +34,7 @@
 	let expC2 = $state(c2);
 	let expVegWeights = $state(vegWeights);
 
+	let neighbourhood: "Moore" | "Von Neumann" = $state("Moore");
 	let pixelThickness = $state(1);
 	let useDensity = $state(true);
 	let placingFire = $state(false);
@@ -120,14 +123,11 @@
 		placingFire = false;
 	}
 
-	function toggleChooseFireLoc() {
-		placingFire = !placingFire;
-	}
-
 	async function startSim() {
 		ongoingExp = true;
 
 		const options: SimOptions = {
+			neighbourhood: neighbourhood === "Von Neumann" ? VON_NEUMANN : MOORE,
 			drawEachStep: true,
 			stepInterval: 5,
 			baseProb: expBaseProb,
@@ -193,7 +193,7 @@
 				loadMaps();
 				break;
 			case 'KeyF':
-				toggleChooseFireLoc();
+				placingFire = !placingFire;
 				break;
 			case 'KeyR':
 				resetCanvas();
@@ -230,6 +230,16 @@
 				<label>
 					C2
 					<input type="number" step="any" bind:value={expC2} />
+				</label>
+			</div>
+
+			<div class="inline">
+				<label>
+					Voisinage
+					<select bind:value={neighbourhood}>
+						<option value="Moore">Moore (8 cases)</option>
+						<option value="Von Neumann">Von Neumann (4 cases)</option>
+					</select>
 				</label>
 			</div>
 		</fieldset>
@@ -287,17 +297,19 @@
 		</fieldset>
 
 		<fieldset disabled={ongoingExp}>
-			<legend>Paramètres</legend>
+			<legend>Vent</legend>
 
-			<label>
-				Vitesse du vent (m/s)
-				<input type="number" min={0} bind:value={windSpeed} />
-			</label>
+			<div class="inline">
+				<label>
+					Vitesse
+					<input type="number" min={0} bind:value={windSpeed} />
+				</label>
 
-			<label>
-				Direction du vent (deg)
-				<input type="number" min={0} max={359} bind:value={windDirDeg} />
-			</label>
+				<label>
+					Direction
+					<input type="number" bind:value={windDirDeg} />
+				</label>
+			</div>
 		</fieldset>
 	</div>
 
@@ -334,9 +346,9 @@
 				Emplacement du feu
 
 				<div class="inline">
-					<input type="number" min={0} max={height} bind:value={firePos[0]} />
-					<input type="number" min={0} max={height} bind:value={firePos[1]} />
-					<button onclick={toggleChooseFireLoc} style="margin: 0">
+					<input type="number" bind:value={firePos[0]} readonly />
+					<input type="number" bind:value={firePos[1]} readonly />
+					<button onclick={() => (placingFire = !placingFire)} style="margin: 0">
 						{#if !placingFire}Choisir{:else}Annuler{/if}
 					</button>
 				</div>
@@ -367,17 +379,19 @@
 
 		<form onsubmit={resizeCanvas}>
 			<fieldset disabled={ongoingExp}>
-				<legend>Dimensions</legend>
+				<legend>Dimensions de la grille</legend>
 
-				<label>
-					Hauteur de la grille
-					<input type="number" step={10} max={800} bind:value={height} />
-				</label>
+				<div class="inline">
+					<label>
+						Hauteur
+						<input type="number" step={10} max={800} bind:value={height} />
+					</label>
 
-				<label>
-					Largeur de la grille
-					<input type="number" step={10} max={800} bind:value={width} />
-				</label>
+					<label>
+						Largeur
+						<input type="number" step={10} max={800} bind:value={width} />
+					</label>
+				</div>
 
 				<button>Redimensionner</button>
 			</fieldset>
@@ -474,7 +488,7 @@
 		.inline {
 			display: flex;
 			gap: 10px;
-			margin: 15px 0;
+			margin: 10px 0;
 
 			label {
 				flex: 1 1 0;
@@ -494,8 +508,7 @@
 			margin: 15px 0;
 		}
 
-		input {
-			box-sizing: border-box;
+		input, select {
 			width: 100%;
 			margin: 5px 0;
 		}
