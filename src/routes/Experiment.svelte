@@ -23,8 +23,16 @@
 	let labels: string[] = $state([]);
 	let config: ExpConfig = $state(initialConfig);
 
+	let slopes = $state({
+		byVegType: [...Array(7)].map(() => ["", "", -1]),
+		burntArea: ["", -1],
+		stepNb: ["", -1],
+		upToDate: true,
+	});
+
 	async function fetchExpResults(restart?: boolean) {
 		ongoingExp = true;
+		slopes.upToDate = false;
 
 		if (restart) {
 			config.startVal = config.min;
@@ -71,6 +79,8 @@
 				(i, v) => (runs[i].burnPercByVegType[vegIndex][2] = v),
 				samplingWidth
 			);
+			
+			slopes.byVegType[vegIndex] = [vegName, labels[steepestAxis], steepestSlope]
 			console.log(`Steepest slope of ${vegName}: ${steepestSlope} for ${labels[steepestAxis]}`);
 		});
 
@@ -80,6 +90,7 @@
 			(i, v) => (runs[i].burnPerc = v),
 			samplingWidth
 		);
+		slopes.burntArea = [labels[burnAxis], burnSlope];
 		console.log(`Steepest slope of the burn percentage: ${burnSlope} for ${labels[burnAxis]}`);
 
 		const [stepSlope, stepAxis] = smoothData(
@@ -89,7 +100,9 @@
 			samplingWidth
 		);
 		console.log(`Steepest slope of the step number: ${stepSlope} for ${labels[stepAxis]}`);
+		slopes.stepNb = [labels[stepAxis], stepSlope];
 
+		slopes.upToDate = true;
 		shouldReset = originalReset;
 	}
 </script>
@@ -130,7 +143,7 @@
 
 	<div bind:this={resultsDiv}>
 		{#if runs.length > 0}
-			<ResultsDisplay {runs} {labels} singleRow={compactDisp} {shouldReset} />
+			<ResultsDisplay {runs} {labels} {slopes} singleRow={compactDisp} {shouldReset} />
 
 			<button
 				disabled={ongoingExp}

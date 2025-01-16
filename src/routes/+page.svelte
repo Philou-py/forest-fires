@@ -397,7 +397,17 @@
 	<p>Les résultats des simulations déclenchées depuis le tableau de bord apparaîtront ici.</p>
 
 	{#if runs.length > 0}
-		<ResultsDisplay {runs} labels={runs.map((_, i) => `Sim ${i + 1}`)} singleRow />
+		<ResultsDisplay
+			{runs}
+			slopes={{
+				byVegType: [...Array(7)].map(() => ['', '', -1]),
+				burntArea: ['', -1],
+				stepNb: ['', -1],
+				upToDate: true
+			}}
+			labels={runs.map((_, i) => `Sim ${i + 1}`)}
+			singleRow
+		/>
 	{/if}
 
 	<Experiment

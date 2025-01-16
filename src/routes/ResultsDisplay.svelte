@@ -3,6 +3,8 @@
 	import { Chart, Ticks } from 'chart.js/auto';
 	import { Vegetation } from '$lib/fireGrid';
 	import { onMount } from 'svelte';
+	import { cubicInOut } from 'svelte/easing';
+	import { slide } from 'svelte/transition';
 
 	Chart.defaults.maintainAspectRatio = false;
 	Chart.defaults.font.family = 'Space Mono';
@@ -13,11 +15,17 @@
 	interface Props {
 		runs: SimResult[];
 		labels: string[];
+		slopes: {
+			byVegType: [string, string, number][];
+			burntArea: [string, number];
+			stepNb: [string, number];
+			upToDate: boolean;
+		};
 		singleRow?: boolean;
 		shouldReset?: boolean;
 	}
 
-	let { runs, labels, singleRow, shouldReset }: Props = $props();
+	let { runs, labels, slopes, singleRow, shouldReset }: Props = $props();
 
 	let chartCanvas1: HTMLCanvasElement;
 	let chartCanvas2: HTMLCanvasElement;
@@ -206,18 +214,61 @@
 		}
 		chart4.update();
 	});
+
+	function round(val: number) {
+		return Math.round(val * 100) / 100;
+	}
 </script>
 
-<div class:singleRow>
+<div class:singleRow class:upToDate={slopes.upToDate}>
 	<div class="chart">
 		<canvas bind:this={chartCanvas1}></canvas>
 	</div>
+
+	{#if slopes.byVegType[0][2] !== -1}
+		<table transition:slide={{ easing: cubicInOut }} class="slopesTable">
+			<caption>
+				Percolation du terrain brûlé par type de végétation
+			</caption>
+
+			<thead>
+				<tr>
+					{#each slopes.byVegType as [vegName] (vegName)}
+						<th>{vegName}</th>
+					{/each}
+				</tr>
+			</thead>
+
+			<tbody>
+				<tr>
+					{#each slopes.byVegType as [_, vegAxis, slope]}
+						<td>{vegAxis} (pente max&nbsp;: {round(slope * 100)})</td>
+					{/each}
+				</tr>
+			</tbody>
+		</table>
+	{/if}
+
 	<div class="chart">
 		<canvas bind:this={chartCanvas2}></canvas>
 	</div>
+
+	{#if slopes.burntArea[1] !== -1}
+		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
+			Percolation du terrain brûlé pour {slopes.burntArea[0]} (pente max&nbsp;: {round(slopes.burntArea[1])}).
+		</p>
+	{/if}
+
 	<div class="chart">
 		<canvas bind:this={chartCanvas3}></canvas>
 	</div>
+	
+	{#if slopes.burntArea[1] !== -1}
+		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
+			Percolation du nombre d&rsquo;étapes pour {slopes.stepNb[0]} (pente max&nbsp;: {round(slopes.stepNb[1])}).
+		</p>
+	{/if}
+
 	<div class="chart">
 		<canvas bind:this={chartCanvas4}></canvas>
 	</div>
@@ -237,7 +288,7 @@
 	.chart {
 		margin: 40px 0;
 		/* Fit exactly three charts on one screen */
-		height: calc(33vh - 2/3 * 40px);
+		height: calc(33vh - 2 / 3 * 40px);
 		min-height: 200px;
 		/* Recommended by Chart.js for responsive charts */
 		position: relative;
@@ -245,5 +296,25 @@
 
 	canvas {
 		max-width: 100%;
+	}
+
+	.slopeText {
+		text-align: center;
+	}
+
+	table.slopesTable {
+		table-layout: fixed;
+		border-collapse: collapse;
+		border: 1px solid black;
+
+		caption {
+			padding: 10px 0;
+		}
+
+		th, td {
+			padding: 10px;
+			border: 1px solid black;
+			text-align: left;
+		}
 	}
 </style>
