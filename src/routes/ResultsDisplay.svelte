@@ -226,7 +226,7 @@
 	</div>
 
 	{#if slopes.byVegType[1][2] !== -1}
-		<table transition:slide={{ easing: cubicInOut }} class="slopesTable">
+		<table class="slopesTable">
 			<caption> Percolation du terrain brûlé par type de végétation </caption>
 
 			<thead>
@@ -256,7 +256,7 @@
 	</div>
 
 	{#if slopes.burntArea[1] !== -1}
-		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
+		<p class="slopeText">
 			Percolation du terrain brûlé pour {slopes.burntArea[0]} (pente max&nbsp;: {round(
 				slopes.burntArea[1]
 			)}).
@@ -268,7 +268,7 @@
 	</div>
 
 	{#if slopes.burntArea[1] !== -1}
-		<p transition:slide={{ easing: cubicInOut }} class="slopeText">
+		<p class="slopeText">
 			Percolation du nombre d&rsquo;étapes pour {slopes.stepNb[0]} (pente max&nbsp;: {round(
 				slopes.stepNb[1]
 			)}).

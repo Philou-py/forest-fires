@@ -73,7 +73,6 @@
 
 		Object.keys(Vegetation).slice(1).forEach((vegName) => {
 			const vegIndex = Vegetation[vegName as keyof typeof Vegetation] - 1;
-			console.log(vegName, vegIndex);
 			slopes.byVegType[vegIndex] = [vegName, "", NaN];
 			if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
 
@@ -85,7 +84,6 @@
 			);
 			
 			slopes.byVegType[vegIndex] = [vegName, labels[steepestAxis], steepestSlope]
-			console.log(`Steepest slope of ${vegName}: ${steepestSlope} for ${labels[steepestAxis]}`);
 		});
 
 		const [burnSlope, burnAxis] = smoothData(
@@ -95,7 +93,6 @@
 			samplingWidth
 		);
 		slopes.burntArea = [labels[burnAxis], burnSlope];
-		console.log(`Steepest slope of the burn percentage: ${burnSlope} for ${labels[burnAxis]}`);
 
 		const [stepSlope, stepAxis] = smoothData(
 			runs,
@@ -103,10 +100,10 @@
 			(i, v) => (runs[i].nbSteps = v),
 			samplingWidth
 		);
-		console.log(`Steepest slope of the step number: ${stepSlope} for ${labels[stepAxis]}`);
 		slopes.stepNb = [labels[stepAxis], stepSlope];
 
 		slopes.upToDate = true;
+		await tick();
 		shouldReset = originalReset;
 	}
 </script>

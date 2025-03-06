@@ -1,13 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createGrid, baseProb, c1, c2, Vegetation, vegWeights, fillNoVeg } from '$lib/fireGrid';
+	import { createGrid, baseProb, c1, c2, c3, Vegetation, vegWeights, fillNoVeg } from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
 	import {
 		degToRad,
 		exp1Config,
 		exp2Config,
 		exp3Config,
-		MOORE,
+		exp4Config,
+		exp5Config,
+		mooreNeigh,
 		setFire,
 		simulate,
 		VON_NEUMANN,
@@ -32,9 +34,11 @@
 	let expBaseProb = $state(baseProb);
 	let expC1 = $state(c1);
 	let expC2 = $state(c2);
+	let expC3 = $state(c3);
 	let expVegWeights = $state(vegWeights);
 
 	let neighbourhood: "Moore" | "Von Neumann" = $state("Moore");
+	let mooreSpread = $state(1);
 	let pixelThickness = $state(1);
 	let useDensity = $state(true);
 	let placingFire = $state(false);
@@ -127,7 +131,7 @@
 		ongoingExp = true;
 
 		const options: SimOptions = {
-			neighbourhood: neighbourhood === "Von Neumann" ? VON_NEUMANN : MOORE,
+			neighbourhood: neighbourhood === "Von Neumann" ? VON_NEUMANN : mooreNeigh(mooreSpread),
 			drawEachStep: true,
 			stepInterval: 5,
 			baseProb: expBaseProb,
@@ -135,6 +139,7 @@
 			windDir,
 			c1: expC1,
 			c2: expC2,
+			c3: expC3,
 			vegWeights: $state.snapshot(expVegWeights)
 		};
 		const { elapsed, nbSteps } = await simulate(board, options);
@@ -231,16 +236,28 @@
 					C2
 					<input type="number" step="any" bind:value={expC2} />
 				</label>
+
+				<label>
+					C3
+					<input type="number" step="any" bind:value={expC3} />
+				</label>
 			</div>
 
 			<div class="inline">
 				<label>
 					Voisinage
 					<select bind:value={neighbourhood}>
-						<option value="Moore">Moore (8 cases)</option>
-						<option value="Von Neumann">Von Neumann (4 cases)</option>
+						<option value="Moore">Moore</option>
+						<option value="Von Neumann">Von Neumann</option>
 					</select>
 				</label>
+
+				{#if neighbourhood === "Moore"}
+					<label>
+						Étendue
+						<input type="number" min="1" max="10" bind:value={mooreSpread} />
+					</label>
+				{/if}
 			</div>
 		</fieldset>
 
@@ -440,6 +457,18 @@
 		expTitle="Effet de la direction du vent - terrain quelconque"
 		expDescription="On teste maintenant les caractéristiques d'un terrain particulier, afin de connaître les directions privilégiées de propagation du feu."
 		initialConfig={exp3Config}
+	/>
+
+	<Experiment
+		expTitle="Effet de l'étendue du voisinage de Moore - terrain homogène"
+		expDescription="Cette expérience fait varier le voisinage considéré durant la simulation afin d'évaluer son importance, et constater à quel point l'approximation locale de l'automate cellulaire est pertinente."
+		initialConfig={exp4Config}
+	/>
+
+	<Experiment
+		expTitle="Effet de l'étendue du voisinage de Moore - terrain quelconque"
+		expDescription="On répète l'expérience précédente, mais dans le cadre de notre terrain complexe, où tous les éléments du terrain sont pris en compte."
+		initialConfig={exp5Config}
 	/>
 </div>
 

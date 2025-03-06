@@ -74,6 +74,7 @@ export type DrawingBoard = {
 export const baseProb = 0.4; // 0.58 is the recommended value
 export const c1 = 0.045;
 export const c2 = 0.131;
+export const c3 = 3;
 
 // Colour values are given as [R, G, B, A]
 export const Colours = {
