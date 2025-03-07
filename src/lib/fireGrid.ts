@@ -1,4 +1,4 @@
-import { CanvasRenderingContext2D, ImageData } from 'canvas';
+import type { CanvasRenderingContext2D, ImageData } from 'canvas';
 
 export const Vegetation = {
 	NoVeg: 0,

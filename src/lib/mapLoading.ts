@@ -1,11 +1,7 @@
 import { createCanvas, createImageData, loadImage } from 'canvas';
 import type { DrawingBoard, VegType, ColType, DensityType } from '$lib/fireGrid';
 import { createGrid, Density, drawSquare, fillNoVeg, Vegetation } from '$lib/fireGrid';
-import vegMap from './maps/vegetation-map.png';
-import roadsMap from './maps/roads-map.png';
-import waterlinesMap from './maps/waterlines-map.png';
-import densityMap from './maps/density-map.png';
-// import { createWriteStream } from "fs";
+import { PUBLIC_BASE_URL } from "$env/static/public";
 
 export type ColourMapping = [ColType, VegType][];
 export type DensityMapping = [ColType, DensityType][];
@@ -73,8 +69,7 @@ function loadGridFromImg(
 	pixelThickness?: number
 ): Promise<void> {
 	return new Promise((resolve) => {
-		// Remove the slash so as to have a relative path (to the project root)
-		loadImage(url.startsWith('/') ? url.slice(1) : url).then((img) => {
+		loadImage(PUBLIC_BASE_URL + url).then((img) => {
 			board.ctx.drawImage(img, 0, 0, board.width, board.height);
 			const loadedData = board.ctx.getImageData(0, 0, board.width, board.height).data;
 
@@ -131,7 +126,7 @@ export async function loadForestWithDensity(
 		cellWidth: Math.max(1, Math.floor(canvasWidth / width))
 	};
 
-	await loadGridFromImg(drawingBoard, densityMap, densityMapping, 'density');
+	await loadGridFromImg(drawingBoard, "density-map.png", densityMapping, 'density');
 
 	// Also calls 'drawCell' for each cell in the grid and 'putImageData'
 	fillNoVeg(drawingBoard);
@@ -162,13 +157,13 @@ export async function loadImages(
 	};
 
 	if (maps.includes('vegetation'))
-		await loadGridFromImg(drawingBoard, vegMap, vegMapping, 'vegBg', pixelThickness);
+		await loadGridFromImg(drawingBoard, "vegetation-map.png", vegMapping, 'vegBg', pixelThickness);
 	if (maps.includes('roads'))
-		await loadGridFromImg(drawingBoard, roadsMap, roadsMapping, 'vegFg', pixelThickness);
+		await loadGridFromImg(drawingBoard, "roads-map.png", roadsMapping, 'vegFg', pixelThickness);
 	if (maps.includes('waterlines'))
-		await loadGridFromImg(drawingBoard, waterlinesMap, waterMapping, 'vegFg', pixelThickness);
+		await loadGridFromImg(drawingBoard, "waterlines-map.png", waterMapping, 'vegFg', pixelThickness);
 	if (maps.includes('density'))
-		await loadGridFromImg(drawingBoard, densityMap, densityMapping, 'density');
+		await loadGridFromImg(drawingBoard, "density-map.png", densityMapping, 'density');
 
 	// Also calls 'drawCell' for each cell in the grid and 'putImageData'
 	fillNoVeg(drawingBoard);

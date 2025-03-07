@@ -1,0 +1,7 @@
+version: "3.2"
+services:
+  forest-fires:
+    image: philoupy/forest-fires:latest
+    ports:
+      - 3000:3000
+    restart: always

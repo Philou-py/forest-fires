@@ -205,8 +205,6 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	if (expConfig.neighbourhood === 'Von Neumann') expConfig.simOptions.neighbourhood = VON_NEUMANN;
 	else expConfig.simOptions.neighbourhood = mooreNeigh(expConfig.mooreSpread ?? 1);
 
-	console.log("nbReps", expConfig.nbReps);
-
 	const width = expConfig.width ?? 800,
 		height = expConfig.height ?? 800;
 	const canvas = createCanvas(width, height);

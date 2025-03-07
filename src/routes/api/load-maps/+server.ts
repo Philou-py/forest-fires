@@ -15,7 +15,8 @@ export const GET: RequestHandler = async ({ url }) => {
 		height,
 		canvasWidth,
 		canvasHeight,
-		pixelThickness
+		pixelThickness,
+		[]
 	);
 
 	return json({
