@@ -1,7 +1,52 @@
-version: "3.2"
+# To compile for the arm64 architecture (https://docs.docker.com/build/building/multi-platform/#install-qemu-manually):
+# First install QEMU: sudo docker run --privileged --rm tonistiigi/binfmt --install all
+# Create a new builder: sudo docker buildx create --name mybuilder
+# Use the new builder: sudo docker buildx use mybuilder
+# Finally, build the app and push it to Docker Hub: sudo docker compose build --push
+# Note that this is the only way to push the image with both architectures (if using docker compose).
+
+# To list the different builders and their supported platforms: sudo docker buildx ls
+
+# To update the image and restart the container, run:
+#   $ sudo docker compose pull
+#   $ sudo docker compose up -d
+#   $ sudo docker image prune
+
 services:
   forest-fires:
     image: philoupy/forest-fires:latest
+    # Documentation: https://docs.docker.com/reference/compose-file/build
+    build:
+      # 'context' indicates the location of the Dockerfile
+      # Alternatively, the 'dockerfile' attribute can be set to a custom file
+      context: "."
+      platforms:
+        - "linux/amd64"
+        - "linux/arm64"
     ports:
-      - 3000:3000
+      - 3001:3000
     restart: always
+
+  # Update sources: sudo apk update
+  # Install Node and npm: sudo apk add --no-cache nodejs npm
+  # Install node-canvas dependencies: sudo apk add build-base cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
+  # In the 'sshd' folder, open 'sshd_config' and set 'AllowTcpForwarding' to 'yes' for the VS Code SSH extension to work.
+  openssh:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: openssh-server
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Paris
+      - SUDO_ACCESS=true # optional
+      - PASSWORD_ACCESS=true # optional
+      - USER_PASSWORD_FILE=/config/password.txt # optional
+      - USER_NAME=tipe # optional
+    volumes:
+      - /home/ubuntu/tipe-openssh:/config
+      - /home/ubuntu/forest-fires-dev:/forest-fires
+    ports:
+      - 2222:2222
+      - 5173:5173 # Not useful if using port forwarding through VS Code
+      - 4173:4173 # Not useful if using port forwarding through VS Code
+    restart: unless-stopped
