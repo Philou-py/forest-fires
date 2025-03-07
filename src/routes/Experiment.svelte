@@ -26,10 +26,10 @@
 	let slopes = $state({
 		// For each vegetation type, store its name, the label of the point with the steepest slope
 		// and the value of the steepest slope
-		byVegType: [...Array(7)].map(() => ["", "", -1]) as [string, string, number][],
-		burntArea: ["", -1] as [string, number],
-		stepNb: ["", -1] as [string, number],
-		upToDate: true,
+		byVegType: [...Array(7)].map(() => ['', '', -1]) as [string, string, number][],
+		burntArea: ['', -1] as [string, number],
+		stepNb: ['', -1] as [string, number],
+		upToDate: true
 	});
 
 	async function fetchExpResults(restart?: boolean) {
@@ -71,20 +71,22 @@
 		await tick();
 		const samplingWidth = Math.floor(runs.length / 10);
 
-		Object.keys(Vegetation).slice(1).forEach((vegName) => {
-			const vegIndex = Vegetation[vegName as keyof typeof Vegetation] - 1;
-			slopes.byVegType[vegIndex] = [vegName, "", NaN];
-			if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
+		Object.keys(Vegetation)
+			.slice(1)
+			.forEach((vegName) => {
+				const vegIndex = Vegetation[vegName as keyof typeof Vegetation] - 1;
+				slopes.byVegType[vegIndex] = [vegName, '', NaN];
+				if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
 
-			const [steepestSlope, steepestAxis] = smoothData(
-				runs,
-				(i) => runs[i].burnPercByVegType[vegIndex][2]!,
-				(i, v) => (runs[i].burnPercByVegType[vegIndex][2] = v),
-				samplingWidth
-			);
-			
-			slopes.byVegType[vegIndex] = [vegName, labels[steepestAxis], steepestSlope]
-		});
+				const [steepestSlope, steepestAxis] = smoothData(
+					runs,
+					(i) => runs[i].burnPercByVegType[vegIndex][2]!,
+					(i, v) => (runs[i].burnPercByVegType[vegIndex][2] = v),
+					samplingWidth
+				);
+
+				slopes.byVegType[vegIndex] = [vegName, labels[steepestAxis], steepestSlope];
+			});
 
 		const [burnSlope, burnAxis] = smoothData(
 			runs,

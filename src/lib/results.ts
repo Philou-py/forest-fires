@@ -1,4 +1,4 @@
-import { Vegetation, type VegType, type DrawingBoard } from "$lib/fireGrid";
+import { Vegetation, type VegType, type DrawingBoard } from '$lib/fireGrid';
 
 export function countBurntCells(board: DrawingBoard): number {
 	let burntCount = 0;
@@ -11,7 +11,7 @@ export function countBurntCells(board: DrawingBoard): number {
 }
 
 export function getBurnPercentage(board: DrawingBoard): number {
-	return countBurntCells(board) / (board.width * board.height) * 100;
+	return (countBurntCells(board) / (board.width * board.height)) * 100;
 }
 
 // Computes the percentage of burnt area for each vegetation type
@@ -32,12 +32,13 @@ export function getBurntVegTypes(board: DrawingBoard): [string, number, number][
 	}
 
 	return Object.entries(Vegetation)
-		.filter(([vegType, _]) => vegType !== "NoVeg")
-		.map(([vegName, veg]) => [vegName, veg, burntByVeg.get(veg)! / vegCount.get(veg)! * 100]);
+		.filter(([vegType, _]) => vegType !== 'NoVeg')
+		.map(([vegName, veg]) => [vegName, veg, (burntByVeg.get(veg)! / vegCount.get(veg)!) * 100]);
 }
 
 export function getFireCentre(board: DrawingBoard): [number, number] {
-	let rowSum = 0, colSum = 0;
+	let rowSum = 0,
+		colSum = 0;
 	let burntCells = 0;
 
 	for (let row = 0; row < board.height; row++) {
@@ -54,7 +55,12 @@ export function getFireCentre(board: DrawingBoard): [number, number] {
 }
 
 // Implements the moving average algorithm with a sampling width of 2 * radius + 1
-export function smoothData(data: any[], readData: (i: number) => number, setData: (i: number, val: number) => void, radius: number) {
+export function smoothData(
+	data: any[],
+	readData: (i: number) => number,
+	setData: (i: number, val: number) => void,
+	radius: number
+) {
 	// Keeps track of the number of values summed in 'currentSum'
 	let width = Math.min(data.length, radius);
 
@@ -84,4 +90,3 @@ export function smoothData(data: any[], readData: (i: number) => number, setData
 	}
 	return [steepestSlope, steepestAxis];
 }
-

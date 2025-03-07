@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createGrid, baseProb, c1, c2, c3, Vegetation, vegWeights, fillNoVeg } from '$lib/fireGrid';
+	import {
+		createGrid,
+		baseProb,
+		c1,
+		c2,
+		c3,
+		Vegetation,
+		vegWeights,
+		fillNoVeg
+	} from '$lib/fireGrid';
 	import type { DrawingBoard } from '$lib/fireGrid';
 	import {
 		degToRad,
@@ -37,7 +46,7 @@
 	let expC3 = $state(c3);
 	let expVegWeights = $state(vegWeights);
 
-	let neighbourhood: "Moore" | "Von Neumann" = $state("Moore");
+	let neighbourhood: 'Moore' | 'Von Neumann' = $state('Moore');
 	let mooreSpread = $state(1);
 	let pixelThickness = $state(1);
 	let useDensity = $state(true);
@@ -131,7 +140,7 @@
 		ongoingExp = true;
 
 		const options: SimOptions = {
-			neighbourhood: neighbourhood === "Von Neumann" ? VON_NEUMANN : mooreNeigh(mooreSpread),
+			neighbourhood: neighbourhood === 'Von Neumann' ? VON_NEUMANN : mooreNeigh(mooreSpread),
 			drawEachStep: true,
 			stepInterval: 5,
 			baseProb: expBaseProb,
@@ -252,7 +261,7 @@
 					</select>
 				</label>
 
-				{#if neighbourhood === "Moore"}
+				{#if neighbourhood === 'Moore'}
 					<label>
 						Étendue
 						<input type="number" min="1" max="10" bind:value={mooreSpread} />
@@ -537,7 +546,8 @@
 			margin: 15px 0;
 		}
 
-		input, select {
+		input,
+		select {
 			width: 100%;
 			margin: 5px 0;
 		}
