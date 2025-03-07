@@ -264,7 +264,7 @@
 				{#if neighbourhood === 'Moore'}
 					<label>
 						Étendue
-						<input type="number" min="1" max="10" bind:value={mooreSpread} />
+						<input type="number" min="1" bind:value={mooreSpread} />
 					</label>
 				{/if}
 			</div>
@@ -410,12 +410,12 @@
 				<div class="inline">
 					<label>
 						Hauteur
-						<input type="number" step={10} max={800} bind:value={height} />
+						<input type="number" step={10} bind:value={height} />
 					</label>
 
 					<label>
 						Largeur
-						<input type="number" step={10} max={800} bind:value={width} />
+						<input type="number" step={10} bind:value={width} />
 					</label>
 				</div>
 

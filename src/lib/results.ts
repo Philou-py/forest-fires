@@ -1,4 +1,5 @@
 import { Vegetation, type VegType, type DrawingBoard } from '$lib/fireGrid';
+import type { SimResult } from './simulation';
 
 export function countBurntCells(board: DrawingBoard): number {
 	let burntCount = 0;
@@ -52,6 +53,25 @@ export function getFireCentre(board: DrawingBoard): [number, number] {
 	}
 
 	return [rowSum / burntCells, colSum / burntCells];
+}
+
+export function mergeRuns(baseRuns: SimResult[], nbReps: number, newRuns: SimResult[]): number {
+		baseRuns.forEach((simRes, i) => {
+			simRes.nbSteps = (nbReps * simRes.nbSteps + newRuns[i].nbSteps) / (nbReps + 1);
+			simRes.burnPerc = (nbReps * simRes.burnPerc + newRuns[i].burnPerc) / (nbReps + 1);
+			simRes.fireCentre[0] =
+				(nbReps * simRes.fireCentre[0] + newRuns[i].fireCentre[0]) / (nbReps + 1);
+			simRes.fireCentre[1] =
+				(nbReps * simRes.fireCentre[1] + newRuns[i].fireCentre[1]) / (nbReps + 1);
+
+			simRes.burnPercByVegType.forEach((burntVeg, j) => {
+				if (burntVeg[2] !== null) {
+					burntVeg[2] = (nbReps * burntVeg[2] + newRuns[i].burnPercByVegType[j][2]!) / (nbReps + 1);
+				}
+			});
+		});
+
+		return nbReps + 1;
 }
 
 // Implements the moving average algorithm with a sampling width of 2 * radius + 1

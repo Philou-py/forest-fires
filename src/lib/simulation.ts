@@ -13,7 +13,7 @@ import {
 } from '$lib/fireGrid';
 import { createCanvas, createImageData } from 'canvas';
 import { loadImages } from '$lib/mapLoading';
-import { getBurnPercentage, getBurntVegTypes, getFireCentre } from './results';
+import { getBurnPercentage, getBurntVegTypes, getFireCentre, mergeRuns } from './results';
 
 export function degToRad(angle: number) {
 	return (angle * Math.PI) / 180;
@@ -155,6 +155,7 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
 
 export type ExpConfig = {
 	nbIters?: number;
+	nbReps?: number;
 	startVal?: number;
 	width?: number;
 	height?: number;
@@ -188,6 +189,7 @@ export type ExpResults = {
 
 export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	if (!expConfig.nbIters) expConfig.nbIters = 5;
+	if (!expConfig.nbReps) expConfig.nbReps = 1;
 	if (!expConfig.startVal) expConfig.startVal = 0;
 	if (!expConfig.simOptions) expConfig.simOptions = {};
 	if (!expConfig.simOptions.windSpeed) expConfig.simOptions.windSpeed = 0;
@@ -202,6 +204,8 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 
 	if (expConfig.neighbourhood === 'Von Neumann') expConfig.simOptions.neighbourhood = VON_NEUMANN;
 	else expConfig.simOptions.neighbourhood = mooreNeigh(expConfig.mooreSpread ?? 1);
+
+	console.log("nbReps", expConfig.nbReps);
 
 	const width = expConfig.width ?? 800,
 		height = expConfig.height ?? 800;
@@ -225,43 +229,52 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 		).keys()
 	].map((i) => expConfig.step * i + expConfig.startVal!);
 
-	const runs = testVals.map(async (testVal) => {
-		const board: DrawingBoard = {
-			ctx: canvas.getContext('2d'),
-			imageData: createImageData(width, height),
-			grid: structuredClone(initialBoard.grid),
-			cellsOnFire: new Set(),
-			width,
-			height,
-			canvasWidth: width,
-			canvasHeight: height,
-			cellWidth: 1,
-			cellHeight: 1
-		};
-		if (expConfig.firePos) setFire(board, ...expConfig.firePos);
-		else setFire(board);
+	let runs: SimResult[] = [];
+	let nbReps = 0;
+	
+	for (let rep = 0; rep < expConfig.nbReps!; rep++) {
+		const runsPromise = testVals.map(async (testVal) => {
+			const board: DrawingBoard = {
+				ctx: canvas.getContext('2d'),
+				imageData: createImageData(width, height),
+				grid: structuredClone(initialBoard.grid),
+				cellsOnFire: new Set(),
+				width,
+				height,
+				canvasWidth: width,
+				canvasHeight: height,
+				cellWidth: 1,
+				cellHeight: 1
+			};
+			if (expConfig.firePos) setFire(board, ...expConfig.firePos);
+			else setFire(board);
 
-		if (expConfig.variable === 'mooreSpread') {
-			expConfig.simOptions!.neighbourhood = mooreNeigh(testVal);
-		} else if (expConfig.variable.startsWith('vegWeights')) {
-			const variable = expConfig.variable.split('.')[1] as keyof typeof Vegetation;
-			expConfig.simOptions!.vegWeights![Vegetation[variable]] = testVal;
-		} else {
-			expConfig.simOptions![expConfig.variable as keyof SimOptions] = testVal as never;
-		}
+			if (expConfig.variable === 'mooreSpread') {
+				expConfig.simOptions!.neighbourhood = mooreNeigh(testVal);
+			} else if (expConfig.variable.startsWith('vegWeights')) {
+				const variable = expConfig.variable.split('.')[1] as keyof typeof Vegetation;
+				expConfig.simOptions!.vegWeights![Vegetation[variable]] = testVal;
+			} else {
+				expConfig.simOptions![expConfig.variable as keyof SimOptions] = testVal as never;
+			}
 
-		const { nbSteps } = await simulate(board, expConfig.simOptions as SimOptions);
+			const { nbSteps } = await simulate(board, expConfig.simOptions as SimOptions);
 
-		return {
-			nbSteps,
-			burnPerc: getBurnPercentage(board),
-			burnPercByVegType: getBurntVegTypes(board),
-			fireCentre: getFireCentre(board)
-		};
-	});
+			return {
+				nbSteps,
+				burnPerc: getBurnPercentage(board),
+				burnPercByVegType: getBurntVegTypes(board),
+				fireCentre: getFireCentre(board)
+			};
+		});
+
+		const newRuns = await Promise.all(runsPromise);
+		if (nbReps === 0) runs = newRuns;
+		else nbReps = mergeRuns(runs, nbReps, newRuns);
+	}
 
 	return {
-		runs: await Promise.all(runs),
+		runs,
 		labels: testVals.map((v) =>
 			expConfig.labelFormat.replace('%s', (Math.round(v * 100) / 100).toString())
 		),
@@ -271,7 +284,7 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 
 export const exp1Config: ExpConfig = {
 	// If not specified, set to "Moore"
-	neighbourhood: 'Von Neumann',
+	neighbourhood: 'Moore',
 
 	// This represents the spread radius of the Moore neighbourhood. The default value is 1.
 	mooreSpread: 1,

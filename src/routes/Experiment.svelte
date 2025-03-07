@@ -9,7 +9,7 @@
 	}
 	import type { ExpConfig, ExpResults, SimResult } from '$lib/simulation';
 	import { tick } from 'svelte';
-	import { smoothData } from '$lib/results';
+	import { mergeRuns, smoothData } from '$lib/results';
 	import { Vegetation } from '$lib/fireGrid';
 
 	let { expTitle, expDescription, initialConfig, compactDisp }: Props = $props();
@@ -32,13 +32,36 @@
 		upToDate: true
 	});
 
-	async function fetchExpResults(restart?: boolean) {
+	async function repeatExp() {
 		ongoingExp = true;
 		slopes.upToDate = false;
 
-		if (restart) {
-			config.startVal = config.min;
-		}
+		const originalNbIters = config.nbIters;
+		const originalNbReps = config.nbReps ?? 1;
+		config.startVal = config.min;
+		config.nbIters = runs.length;
+
+		config.nbReps = 1;
+		const response = await fetch(`/api/simulate/`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'applications/json'
+			},
+			body: JSON.stringify(config)
+		});
+		const results: ExpResults = await response.json();
+
+		shouldReset = true;
+		config.nbIters = originalNbIters;
+		config.nbReps = mergeRuns(runs, originalNbReps, results.runs);
+
+		ongoingExp = false;
+		await tick();
+	}
+
+	async function fetchExpResults() {
+		ongoingExp = true;
+		slopes.upToDate = false;
 
 		const response = await fetch(`/api/simulate/`, {
 			method: 'POST',
@@ -49,16 +72,11 @@
 		});
 		const results: ExpResults = await response.json();
 
-		if (restart) {
-			runs = [];
-			labels = [];
-			shouldReset = true;
-		} else {
-			shouldReset = false;
-		}
 		runs.push(...results.runs);
 		labels.push(...results.labels);
 		config.startVal = results.nextExp;
+		shouldReset = false;
+
 		ongoingExp = false;
 		await tick();
 		resultsDiv.scrollIntoView();
@@ -120,13 +138,23 @@
 	<p>{expDescription}</p>
 
 	<div class="launchBtns">
-		<button
-			disabled={ongoingExp}
-			onclick={() => fetchExpResults(true)}
-			style="color: rebeccapurple"
-		>
-			{runs.length > 0 ? 'Rel' : 'L'}ancer l&rsquo;expérience
-		</button>
+		{#if runs.length === 0}
+			<button
+				disabled={ongoingExp}
+				onclick={() => fetchExpResults()}
+				style="color: rebeccapurple"
+			>
+				Lancer l&rsquo;expérience
+			</button>
+		{:else}
+			<button
+				disabled={ongoingExp}
+				onclick={() => repeatExp()}
+				style="color: darkslateblue"
+			>
+				Répéter l&rsquo;expérience
+			</button>
+		{/if}
 
 		<label class="nbSimsLabel">
 			Nombre de simulations
