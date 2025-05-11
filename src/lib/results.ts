@@ -55,58 +55,70 @@ export function getFireCentre(board: DrawingBoard): [number, number] {
 	return [rowSum / burntCells, colSum / burntCells];
 }
 
-export function mergeRuns(baseRuns: SimResult[], nbReps: number, newRuns: SimResult[]): number {
-		baseRuns.forEach((simRes, i) => {
-			simRes.nbSteps = (nbReps * simRes.nbSteps + newRuns[i].nbSteps) / (nbReps + 1);
-			simRes.burnPerc = (nbReps * simRes.burnPerc + newRuns[i].burnPerc) / (nbReps + 1);
-			simRes.fireCentre[0] =
-				(nbReps * simRes.fireCentre[0] + newRuns[i].fireCentre[0]) / (nbReps + 1);
-			simRes.fireCentre[1] =
-				(nbReps * simRes.fireCentre[1] + newRuns[i].fireCentre[1]) / (nbReps + 1);
+export function mergeRuns(baseRuns: SimResult[], nbReps: number, newRuns: SimResult[]) {
+	baseRuns.forEach((simRes, i) => {
+		simRes.nbSteps = (nbReps * simRes.nbSteps + newRuns[i].nbSteps) / (nbReps + 1);
+		simRes.burnPerc = (nbReps * simRes.burnPerc + newRuns[i].burnPerc) / (nbReps + 1);
+		simRes.fireCentre[0] =
+			(nbReps * simRes.fireCentre[0] + newRuns[i].fireCentre[0]) / (nbReps + 1);
+		simRes.fireCentre[1] =
+			(nbReps * simRes.fireCentre[1] + newRuns[i].fireCentre[1]) / (nbReps + 1);
 
-			simRes.burnPercByVegType.forEach((burntVeg, j) => {
-				if (burntVeg[2] !== null) {
-					burntVeg[2] = (nbReps * burntVeg[2] + newRuns[i].burnPercByVegType[j][2]!) / (nbReps + 1);
-				}
-			});
+		simRes.burnPercByVegType.forEach((burntVeg, j) => {
+			if (burntVeg[2] !== null) {
+				burntVeg[2] = (nbReps * burntVeg[2] + newRuns[i].burnPercByVegType[j][2]!) / (nbReps + 1);
+			}
 		});
-
-		return nbReps + 1;
+	});
 }
 
 // Implements the moving average algorithm with a sampling width of 2 * radius + 1
-export function smoothData(
-	data: any[],
-	readData: (i: number) => number,
-	setData: (i: number, val: number) => void,
-	radius: number
-) {
+export function smoothData(data: number[], radius: number) {
 	// Keeps track of the number of values summed in 'currentSum'
 	let width = Math.min(data.length, radius);
 
 	let currentSum = 0;
-	for (let i = 0; i < width; i++) currentSum += readData(i);
+	for (let i = 0; i < width; i++) currentSum += data[i];
 
-	for (let i = 0; i < data.length; i++) {
+	return Array.from({ length: data.length }, (_, i) => {
 		if (i + radius < data.length) {
-			currentSum += readData(i + radius);
+			currentSum += data[i + radius];
 			width++;
 		}
 		if (i > radius) {
-			currentSum -= readData(i - radius - 1);
+			currentSum -= data[i - radius - 1];
 			width--;
 		}
-		setData(i, currentSum / width);
-	}
+		return currentSum / width;
+	});
+}
 
+export function getSteepest(data: number[]) {
 	let steepestSlope = 0;
-	let steepestAxis = 0;
+	let steepestIndex = 0;
+
 	for (let i = 0; i < data.length - 1; i++) {
-		const slope = Math.abs(readData(i + 1) - readData(i));
+		const slope = Math.abs(data[i + 1] - data[i]);
 		if (slope > steepestSlope) {
 			steepestSlope = slope;
-			steepestAxis = i;
+			steepestIndex = i;
 		}
 	}
-	return [steepestSlope, steepestAxis];
+
+	return [steepestIndex, steepestSlope];
+}
+
+export function getGreatestGap(data: [number, number][]) {
+	let greatestGap = 0;
+	let greatestIndex = 0;
+
+	for (let i = 0; i < data.length - 1; i++) {
+		const distance = Math.sqrt((data[i + 1][1] - data[i][1])**2 + (data[i + 1][0] - data[i][0])**2);
+		if (distance > greatestGap) {
+			greatestGap = distance;
+			greatestIndex = i;
+		}
+	}
+
+	return [greatestIndex, greatestGap];
 }

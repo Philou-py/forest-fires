@@ -3,7 +3,6 @@
 	import { Chart, Ticks } from 'chart.js/auto';
 	import { Vegetation } from '$lib/fireGrid';
 	import { onMount } from 'svelte';
-	import { cubicInOut } from 'svelte/easing';
 	import { slide } from 'svelte/transition';
 
 	Chart.defaults.maintainAspectRatio = false;
@@ -19,13 +18,14 @@
 			byVegType: [string, string, number][];
 			burntArea: [string, number];
 			stepNb: [string, number];
+			fireCentre: [string, number];
 			upToDate: boolean;
 		};
 		singleRow?: boolean;
-		shouldReset?: boolean;
+		repeatedExp?: boolean;
 	}
 
-	let { runs, labels, slopes, singleRow, shouldReset }: Props = $props();
+	let { runs, labels, slopes, singleRow, repeatedExp }: Props = $props();
 
 	let chartCanvas1: HTMLCanvasElement;
 	let chartCanvas2: HTMLCanvasElement;
@@ -35,7 +35,7 @@
 	let chart1: Chart<'bar', { vegType: string; perc: number | null }[], string>;
 	let chart2: Chart<'bar', number[], string>;
 	let chart3: Chart<'bar', number[], string>;
-	let chart4: Chart<'scatter', [number, number][], number>;
+	let chart4: Chart<'scatter', [number, number][], string>;
 
 	onMount(() => {
 		Chart.defaults.devicePixelRatio = 2 * window.devicePixelRatio;
@@ -119,7 +119,8 @@
 		chart4 = new Chart(chartCanvas4, {
 			type: 'scatter',
 			data: {
-				datasets: []
+				labels: [],
+				datasets: [{ data: [] }]
 			},
 			options: {
 				elements: {
@@ -145,6 +146,9 @@
 					title: {
 						display: true,
 						text: 'Position moyenne du terrain brûlé'
+					},
+					legend: {
+						display: false
 					}
 				}
 			}
@@ -152,27 +156,25 @@
 	});
 
 	$effect(() => {
-		// If the simulations were reset, discard all previous results
-		if (shouldReset) {
-			chart1.data.datasets = runs.map(({ burnPercByVegType }, i) => ({
-				label: labels[i],
-				data: burnPercByVegType.map(([vegType, _, perc]) => ({ vegType, perc }))
-			}));
+		// If the experiment was repeated, update all previous results
+		if (repeatedExp) {
+			runs.forEach(({ burnPercByVegType }, i) => {
+				burnPercByVegType.forEach(([_vegType, _vegIndex, perc], j) => {
+					chart1.data.datasets[i].data[j].perc = perc;
+				});
+			});
 			chart1.update();
 
-			chart2.data.labels = [...labels];
-			chart2.data.datasets[0].data = runs.map(({ burnPerc }) => burnPerc);
+			runs.forEach(({ burnPerc }, i) => (chart2.data.datasets[0].data[i] = burnPerc));
 			chart2.update();
 
-			chart3.data.labels = [...labels];
-			chart3.data.datasets[0].data = runs.map(({ nbSteps }) => nbSteps);
+			runs.forEach(({ nbSteps }, i) => (chart3.data.datasets[0].data[i] = nbSteps));
 			chart3.update();
 
-			chart4.data.datasets = runs.map(({ fireCentre }, i) => ({
-				label: labels[i],
-				// Invert row/col to match x/y
-				data: [[fireCentre[1], fireCentre[0]]]
-			}));
+			// Invert row/col to match x/y
+			runs.forEach(
+				({ fireCentre }, i) => (chart4.data.datasets[0].data[i] = [fireCentre[1], fireCentre[0]])
+			);
 			chart4.update();
 			return;
 		}
@@ -205,12 +207,13 @@
 		}
 		chart3.update();
 
-		const chart4Data = chart4.data.datasets;
+		const chart4Data = chart4.data.datasets[0].data;
 		while (chart4Data.length < runs.length) {
-			chart4Data.push({
-				label: labels[chart4Data.length],
-				data: [[runs[chart4Data.length].fireCentre[1], runs[chart4Data.length].fireCentre[0]]]
-			});
+			chart4.data.labels!.push(labels[chart4Data.length]);
+			chart4Data.push([
+				runs[chart4Data.length].fireCentre[1],
+				runs[chart4Data.length].fireCentre[0]
+			]);
 		}
 		chart4.update();
 	});
@@ -226,29 +229,31 @@
 	</div>
 
 	{#if slopes.byVegType[1][2] !== -1}
-		<table class="slopesTable">
-			<caption> Percolation du terrain brûlé par type de végétation </caption>
+		<div transition:slide>
+			<table class="slopesTable">
+				<caption> Percolation du terrain brûlé par type de végétation </caption>
 
-			<thead>
-				<tr>
-					{#each slopes.byVegType as [vegName] (vegName)}
-						<th>{vegName}</th>
-					{/each}
-				</tr>
-			</thead>
+				<thead>
+					<tr>
+						{#each slopes.byVegType as [vegName] (vegName)}
+							<th>{vegName}</th>
+						{/each}
+					</tr>
+				</thead>
 
-			<tbody>
-				<tr>
-					{#each slopes.byVegType as [vegName, vegAxis, slope] (vegName)}
-						<td>
-							{#if !Number.isNaN(slope)}
-								{vegAxis} (pente max&nbsp;: {round(slope)})
-							{/if}
-						</td>
-					{/each}
-				</tr>
-			</tbody>
-		</table>
+				<tbody>
+					<tr>
+						{#each slopes.byVegType as [vegName, vegAxis, slope] (vegName)}
+							<td>
+								{#if !Number.isNaN(slope)}
+									{vegAxis} (pente max&nbsp;: {round(slope)})
+								{/if}
+							</td>
+						{/each}
+					</tr>
+				</tbody>
+			</table>
+		</div>
 	{/if}
 
 	<div class="chart">
@@ -256,7 +261,7 @@
 	</div>
 
 	{#if slopes.burntArea[1] !== -1}
-		<p class="slopeText">
+		<p class="slopeText" transition:slide>
 			Percolation du terrain brûlé pour {slopes.burntArea[0]} (pente max&nbsp;: {round(
 				slopes.burntArea[1]
 			)}).
@@ -267,8 +272,8 @@
 		<canvas bind:this={chartCanvas3}></canvas>
 	</div>
 
-	{#if slopes.burntArea[1] !== -1}
-		<p class="slopeText">
+	{#if slopes.stepNb[1] !== -1}
+		<p class="slopeText" transition:slide>
 			Percolation du nombre d&rsquo;étapes pour {slopes.stepNb[0]} (pente max&nbsp;: {round(
 				slopes.stepNb[1]
 			)}).
@@ -278,6 +283,14 @@
 	<div class="chart">
 		<canvas bind:this={chartCanvas4}></canvas>
 	</div>
+
+	{#if slopes.fireCentre[1] !== -1}
+		<p class="slopeText" transition:slide>
+			Percolation de la position du feu pour {slopes.fireCentre[0]} (écart max&nbsp;: {round(
+				slopes.fireCentre[1]
+			)}).
+		</p>
+	{/if}
 </div>
 
 <style>

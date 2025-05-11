@@ -1,5 +1,10 @@
 <script lang="ts">
 	import ResultsDisplay from './ResultsDisplay.svelte';
+	import type { ExpConfig, ExpResults, SimResult } from '$lib/simulation';
+	import { tick } from 'svelte';
+	import { slide } from 'svelte/transition';
+	import { getGreatestGap, getSteepest, mergeRuns, smoothData } from '$lib/results';
+	import { Vegetation } from '$lib/fireGrid';
 
 	interface Props {
 		expTitle: string;
@@ -7,21 +12,17 @@
 		initialConfig: ExpConfig;
 		compactDisp?: boolean;
 	}
-	import type { ExpConfig, ExpResults, SimResult } from '$lib/simulation';
-	import { tick } from 'svelte';
-	import { mergeRuns, smoothData } from '$lib/results';
-	import { Vegetation } from '$lib/fireGrid';
 
 	let { expTitle, expDescription, initialConfig, compactDisp }: Props = $props();
 
 	let resultsDiv: HTMLDivElement;
 
-	// Counts the number of pending fetch calls
 	let ongoingExp = $state(false);
-	let shouldReset = $state(false);
+	let repeatedExp = $state(false);
 	let runs: SimResult[] = $state([]);
 	let labels: string[] = $state([]);
 	let config: ExpConfig = $state(initialConfig);
+	let shouldSmooth = $state(true);
 
 	let slopes = $state({
 		// For each vegetation type, store its name, the label of the point with the steepest slope
@@ -29,45 +30,44 @@
 		byVegType: [...Array(7)].map(() => ['', '', -1]) as [string, string, number][],
 		burntArea: ['', -1] as [string, number],
 		stepNb: ['', -1] as [string, number],
+		fireCentre: ['', -1] as [string, number],
 		upToDate: true
 	});
 
 	async function repeatExp() {
 		ongoingExp = true;
 		slopes.upToDate = false;
+		config.nbReps ??= 1;
 
-		const originalNbIters = config.nbIters;
-		const originalNbReps = config.nbReps ?? 1;
-		config.startVal = config.min;
-		config.nbIters = runs.length;
+		const repeatConfig = {
+			...config,
+			startVal: config.min,
+			nbIters: runs.length,
+			nbReps: 1
+		};
 
-		config.nbReps = 1;
 		const response = await fetch(`/api/simulate/`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'applications/json'
-			},
-			body: JSON.stringify(config)
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(repeatConfig)
 		});
 		const results: ExpResults = await response.json();
 
-		shouldReset = true;
-		config.nbIters = originalNbIters;
-		config.nbReps = mergeRuns(runs, originalNbReps, results.runs);
+		repeatedExp = true;
+		mergeRuns(runs, config.nbReps, results.runs);
+		config.nbReps++;
 
 		ongoingExp = false;
-		await tick();
 	}
 
 	async function fetchExpResults() {
 		ongoingExp = true;
 		slopes.upToDate = false;
+		repeatedExp = false;
 
 		const response = await fetch(`/api/simulate/`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'applications/json'
-			},
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(config)
 		});
 		const results: ExpResults = await response.json();
@@ -75,56 +75,56 @@
 		runs.push(...results.runs);
 		labels.push(...results.labels);
 		config.startVal = results.nextExp;
-		shouldReset = false;
 
 		ongoingExp = false;
 		await tick();
 		resultsDiv.scrollIntoView();
 	}
 
-	async function smoothResults() {
-		// Force repaint of the data series
-		const originalReset = shouldReset;
-		shouldReset = true;
-		await tick();
-		const samplingWidth = Math.floor(runs.length / 10);
+	async function analyseResults() {
+		// Force update of the data series
+		repeatedExp = true;
+		const samplingWidth = shouldSmooth ? Math.floor(runs.length / 10) : 0;
 
 		Object.keys(Vegetation)
 			.slice(1)
 			.forEach((vegName) => {
 				const vegIndex = Vegetation[vegName as keyof typeof Vegetation] - 1;
 				slopes.byVegType[vegIndex] = [vegName, '', NaN];
+				// If this vegetation type did not appear on the map of the experiment
 				if (runs.length > 0 && runs[0].burnPercByVegType[vegIndex][2] === null) return;
 
-				const [steepestSlope, steepestAxis] = smoothData(
-					runs,
-					(i) => runs[i].burnPercByVegType[vegIndex][2]!,
-					(i, v) => (runs[i].burnPercByVegType[vegIndex][2] = v),
+				const smoothed = smoothData(
+					runs.map((run) => run.burnPercByVegType[vegIndex][2]!),
 					samplingWidth
 				);
+				smoothed.forEach((perc, i) => (runs[i].burnPercByVegType[vegIndex][2] = perc));
 
-				slopes.byVegType[vegIndex] = [vegName, labels[steepestAxis], steepestSlope];
+				const [steepestIndex, maxSlope] = getSteepest(smoothed);
+
+				slopes.byVegType[vegIndex] = [vegName, labels[steepestIndex], maxSlope];
 			});
 
-		const [burnSlope, burnAxis] = smoothData(
-			runs,
-			(i) => runs[i].burnPerc,
-			(i, v) => (runs[i].burnPerc = v),
-			samplingWidth
-		);
-		slopes.burntArea = [labels[burnAxis], burnSlope];
+		const burnData = runs.map((run) => run.burnPerc);
+		const smoothedBurnPerc = smoothData(burnData, samplingWidth);
+		smoothedBurnPerc.forEach((perc, i) => (runs[i].burnPerc = perc));
 
-		const [stepSlope, stepAxis] = smoothData(
-			runs,
-			(i) => runs[i].nbSteps,
-			(i, v) => (runs[i].nbSteps = v),
-			samplingWidth
-		);
-		slopes.stepNb = [labels[stepAxis], stepSlope];
+		const [steepestBurnIndex, maxBurnSlope] = getSteepest(smoothedBurnPerc);
+		slopes.burntArea = [labels[steepestBurnIndex], maxBurnSlope];
+
+		const stepsData = runs.map((run) => run.nbSteps);
+		const smoothedSteps = smoothData(stepsData, samplingWidth);
+		smoothedSteps.forEach((nb, i) => (runs[i].nbSteps = nb));
+
+		const [steepestStepsIndex, maxStepsSlope] = getSteepest(smoothedSteps);
+		slopes.stepNb = [labels[steepestStepsIndex], maxStepsSlope];
+
+
+		const fireCentreData = runs.map((run) => run.fireCentre);
+		const [greatestIndex, greatestGap] = getGreatestGap(fireCentreData);
+		slopes.fireCentre = [labels[greatestIndex], greatestGap];
 
 		slopes.upToDate = true;
-		await tick();
-		shouldReset = originalReset;
 	}
 </script>
 
@@ -139,19 +139,11 @@
 
 	<div class="launchBtns">
 		{#if runs.length === 0}
-			<button
-				disabled={ongoingExp}
-				onclick={() => fetchExpResults()}
-				style="color: rebeccapurple"
-			>
+			<button disabled={ongoingExp} onclick={() => fetchExpResults()} style="color: rebeccapurple">
 				Lancer l&rsquo;expérience
 			</button>
 		{:else}
-			<button
-				disabled={ongoingExp}
-				onclick={() => repeatExp()}
-				style="color: darkslateblue"
-			>
+			<button disabled={ongoingExp} onclick={() => repeatExp()} style="color: darkslateblue">
 				Répéter l&rsquo;expérience
 			</button>
 		{/if}
@@ -164,7 +156,7 @@
 		{#if runs.length > 0}
 			<button
 				disabled={ongoingExp || config.startVal === undefined}
-				onclick={() => fetchExpResults()}
+				onclick={fetchExpResults}
 				style="color: lightseagreen"
 			>
 				Continuer l&rsquo;expérience
@@ -172,17 +164,30 @@
 		{/if}
 	</div>
 
+	{#if runs.length > 0 && config.nbReps && config.nbReps > 1}
+		<p style="text-align: center;" transition:slide>
+			Chaque simulation a été répétée {config.nbReps} fois.
+		</p>
+	{/if}
+
 	<div bind:this={resultsDiv}>
 		{#if runs.length > 0}
-			<ResultsDisplay {runs} {labels} {slopes} singleRow={compactDisp} {shouldReset} />
+			<ResultsDisplay {runs} {labels} {slopes} singleRow={compactDisp} {repeatedExp} />
 
-			<button
-				disabled={ongoingExp}
-				onclick={smoothResults}
-				style="font-size: 1.1em; margin: 20px auto; display: block"
-			>
-				Lisser les résultats
-			</button>
+			<div class="analysisControls">
+				<label>
+					<input type="checkbox" bind:checked={shouldSmooth} />
+					Lisser les résultats
+				</label>
+
+				<button
+					style="color: darkorange;"
+					disabled={ongoingExp}
+					onclick={analyseResults}
+				>
+					Analyser
+				</button>
+			</div>
 		{/if}
 	</div>
 </section>
@@ -210,6 +215,32 @@
 			box-sizing: border-box;
 			width: 30%;
 			margin: 5px;
+		}
+	}
+
+	.analysisControls {
+		display: flex;
+		font-size: 1.1em;
+		justify-content: center;
+		align-items: center;
+		gap: 30px;
+		margin: 20px 0;
+
+		button {
+			display: block;
+		}
+
+		input[type='checkbox'] {
+			width: 1.3em;
+			height: 1.3em;
+			vertical-align: middle;
+			margin: 0 0.5em;
+		}
+
+		label {
+			display: block;
+			text-align: center;
+			margin: 15px 0;
 		}
 	}
 </style>
