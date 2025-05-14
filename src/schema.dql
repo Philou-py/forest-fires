@@ -1,0 +1,108 @@
+expNb: int @index(int) .
+expTitle: string @index(hash) .
+expDescription: string @index(fulltext, exact) .
+expConfig: uid .
+expResults: uid .
+ongoing: bool @index(bool) .
+nbIters: int .
+nbReps: int .
+begNbReps: int .
+width: int .
+height: int .
+maps: [string] .
+pixelThickness: int .
+useDensity: bool .
+neighbourhood: string .
+firePosX: int .
+firePosY: int .
+variable: string .
+startVal: float .
+nextExp: float .
+max: float .
+step: float .
+labelFormat: string .
+simOptions: uid .
+runIndex: int @index(int) .
+nbSteps: float .
+burnPerc: float .
+burnPercByVegType: [uid] .
+fireCentreX: float .
+fireCentreY: float .
+vegName: string .
+vegIndex: int .
+mooreSpread: int .
+windSpeed: float .
+windDir: float .
+baseProb: float .
+c1: float .
+c2: float .
+c3: float .
+labelName: string .
+labelIndex: int @index(int) .
+runs: [uid] .
+labels: [uid] .
+
+type SimOptions {
+	mooreSpread
+	windSpeed
+	windDir
+	baseProb
+	c1
+	c2
+	c3
+}
+
+type ExpConfig {
+	nbIters
+	nbReps
+	begNbReps
+	width
+	height
+	maps
+	pixelThickness
+	useDensity
+	neighbourhood
+	firePosX
+	firePosY
+	variable
+	startVal
+	nextExp
+	max
+	step
+	labelFormat
+	simOptions
+}
+
+type BurntVeg {
+	vegName
+	vegIndex
+	burnPerc
+}
+
+type SimResult {
+	runIndex
+	nbSteps
+	burnPerc
+	burnPercByVegType
+	fireCentreX
+	fireCentreY
+}
+
+type Label {
+	labelName
+	labelIndex
+}
+
+type ExpResults {
+	runs
+	labels
+}
+
+type Experiment {
+	expNb
+	expTitle
+	expDescription
+	expConfig
+	expResults
+	ongoing
+}

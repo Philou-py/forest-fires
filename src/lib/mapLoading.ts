@@ -1,7 +1,7 @@
 import { createCanvas, createImageData, loadImage } from 'canvas';
 import type { DrawingBoard, VegType, ColType, DensityType } from '$lib/fireGrid';
 import { createGrid, Density, drawSquare, fillNoVeg, Vegetation } from '$lib/fireGrid';
-import { PUBLIC_BASE_URL } from "$env/static/public";
+import { PUBLIC_BASE_URL } from '$env/static/public';
 
 export type ColourMapping = [ColType, VegType][];
 export type DensityMapping = [ColType, DensityType][];
@@ -126,7 +126,7 @@ export async function loadForestWithDensity(
 		cellWidth: Math.max(1, Math.floor(canvasWidth / width))
 	};
 
-	await loadGridFromImg(drawingBoard, "density-map.png", densityMapping, 'density');
+	await loadGridFromImg(drawingBoard, 'density-map.png', densityMapping, 'density');
 
 	// Also calls 'drawCell' for each cell in the grid and 'putImageData'
 	fillNoVeg(drawingBoard);
@@ -157,13 +157,19 @@ export async function loadImages(
 	};
 
 	if (maps.includes('vegetation'))
-		await loadGridFromImg(drawingBoard, "vegetation-map.png", vegMapping, 'vegBg', pixelThickness);
+		await loadGridFromImg(drawingBoard, 'vegetation-map.png', vegMapping, 'vegBg', pixelThickness);
 	if (maps.includes('roads'))
-		await loadGridFromImg(drawingBoard, "roads-map.png", roadsMapping, 'vegFg', pixelThickness);
+		await loadGridFromImg(drawingBoard, 'roads-map.png', roadsMapping, 'vegFg', pixelThickness);
 	if (maps.includes('waterlines'))
-		await loadGridFromImg(drawingBoard, "waterlines-map.png", waterMapping, 'vegFg', pixelThickness);
+		await loadGridFromImg(
+			drawingBoard,
+			'waterlines-map.png',
+			waterMapping,
+			'vegFg',
+			pixelThickness
+		);
 	if (maps.includes('density'))
-		await loadGridFromImg(drawingBoard, "density-map.png", densityMapping, 'density');
+		await loadGridFromImg(drawingBoard, 'density-map.png', densityMapping, 'density');
 
 	// Also calls 'drawCell' for each cell in the grid and 'putImageData'
 	fillNoVeg(drawingBoard);

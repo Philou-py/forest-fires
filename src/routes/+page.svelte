@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { PageProps } from './$types';
 	import { onMount } from 'svelte';
 	import {
 		createGrid,
@@ -13,11 +14,6 @@
 	import type { DrawingBoard } from '$lib/fireGrid';
 	import {
 		degToRad,
-		exp1Config,
-		exp2Config,
-		exp3Config,
-		exp4Config,
-		exp5Config,
 		mooreNeigh,
 		setFire,
 		simulate,
@@ -29,6 +25,10 @@
 	import { getBurnPercentage, getBurntVegTypes, getFireCentre } from '$lib/results';
 	import ResultsDisplay from './ResultsDisplay.svelte';
 	import Experiment from './Experiment.svelte';
+	import ExpModal from './ExpModal.svelte';
+
+	let { data }: PageProps = $props();
+	let experiments = $state(data.experiments);
 
 	let canvas: HTMLCanvasElement;
 	let board: DrawingBoard;
@@ -61,8 +61,9 @@
 
 	let cellHeight = 1;
 	let cellWidth = 1;
-
 	let dpr = 1;
+
+	let showModal = $state(false);
 
 	function resizeCanvas(event?: SubmitEvent) {
 		event?.preventDefault();
@@ -140,6 +141,7 @@
 		ongoingExp = true;
 
 		const options: SimOptions = {
+			uid: "",
 			neighbourhood: neighbourhood === 'Von Neumann' ? VON_NEUMANN : mooreNeigh(mooreSpread),
 			drawEachStep: true,
 			stepInterval: 5,
@@ -163,6 +165,37 @@
 		runs.push(simResult);
 		firePos = [];
 		ongoingExp = false;
+	}
+
+	async function sendNewExp(title: string, description: string, strConfig: string) {
+		const newConfig = JSON.parse(strConfig);
+		const updateResponse = await fetch('/api/create-exp', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				expNb: experiments.length,
+				expTitle: title,
+				expDescription: description,
+				newConfig
+			})
+		});
+		const createResult = await updateResponse.json();
+		console.log(createResult);
+
+		if (!createResult.error) {
+			showModal = false;
+
+			newConfig.uid = createResult.configUid;
+			if (newConfig.simOptions) newConfig.simOptions.uid = createResult.simOptionsUid;
+			
+			experiments.push({
+				uid: createResult.expUid,
+				expTitle: title,
+				expDescription: description,
+				expNb: experiments.length,
+				expConfig: newConfig
+			});
+		}
 	}
 
 	onMount(() => {
@@ -196,7 +229,8 @@
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
-		if ((e.target as HTMLElement).tagName === 'INPUT' || ongoingExp) return;
+		const tagName = (e.target as HTMLElement).tagName;
+		if (tagName === 'INPUT' || tagName === 'TEXTAREA' || ongoingExp) return;
 		if (placingFire && e.code !== 'KeyF') return;
 
 		switch (e.code) {
@@ -443,6 +477,7 @@
 				byVegType: [...Array(7)].map(() => ['', '', -1]),
 				burntArea: ['', -1],
 				stepNb: ['', -1],
+				fireCentre: ['', -1],
 				upToDate: true
 			}}
 			labels={runs.map((_, i) => `Sim ${i + 1}`)}
@@ -450,35 +485,108 @@
 		/>
 	{/if}
 
+	{#each experiments as expData (expData.uid)}
+		<Experiment {expData} />
+	{:else}
+		<button
+			class="loadExpsBtn"
+			onclick={async () => {
+				const response = await fetch('/api/load-exps', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' }
+				});
+				const result = await response.json();
+				console.log(result);
+			}}
+		>
+			Charger les expériences
+		</button>
+	{/each}
+
+	<ExpModal
+		expTitle=""
+		expDescription=""
+		strConfig={`{}`}
+		bind:open={showModal}
+		onValidate={sendNewExp}
+	/>
+
+	<button class="createExpBtn" onclick={() => (showModal = true)}>Nouvelle expérience</button>
+
+	<!--
 	<Experiment
-		expTitle="Effet de la vitesse du vent"
-		expDescription="Dans cette expérience, les simulations sont lancées avec des vitesses de vent croissantes, avec des valeurs allant de 0.5 en 0.5."
+		expTitle="Expérience 1"
+		expDescription=""
 		initialConfig={exp1Config}
 	/>
 
 	<Experiment
-		expTitle="Effet de la direction du vent - terrain homogène"
-		expDescription="La direction du vent joue un rôle crucial dans la propagation du feu. Il est néanmoins important de contrôler qu'elle n'a pas d'influence dans un milieu où la végétation est homogène."
+		expTitle="Expérience 2"
+		expDescription=""
 		initialConfig={exp2Config}
 	/>
 
 	<Experiment
-		expTitle="Effet de la direction du vent - terrain quelconque"
-		expDescription="On teste maintenant les caractéristiques d'un terrain particulier, afin de connaître les directions privilégiées de propagation du feu."
+		expTitle="Expérience 3"
+		expDescription=""
 		initialConfig={exp3Config}
 	/>
 
 	<Experiment
-		expTitle="Effet de l'étendue du voisinage de Moore - terrain homogène"
-		expDescription="Cette expérience fait varier le voisinage considéré durant la simulation afin d'évaluer son importance, et constater à quel point l'approximation locale de l'automate cellulaire est pertinente."
+		expTitle="Expérience 4"
+		expDescription=""
 		initialConfig={exp4Config}
 	/>
 
 	<Experiment
-		expTitle="Effet de l'étendue du voisinage de Moore - terrain quelconque"
-		expDescription="On répète l'expérience précédente, mais dans le cadre de notre terrain complexe, où tous les éléments du terrain sont pris en compte."
+		expTitle="Expérience 5"
+		expDescription=""
 		initialConfig={exp5Config}
 	/>
+
+	<Experiment
+		expTitle="Expérience 6"
+		expDescription=""
+		initialConfig={exp6Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 7"
+		expDescription=""
+		initialConfig={exp7Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 8"
+		expDescription=""
+		initialConfig={exp8Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 9"
+		expDescription=""
+		initialConfig={exp9Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 10"
+		expDescription=""
+		initialConfig={exp10Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 11"
+		expDescription=""
+		initialConfig={exp11Config}
+	/>
+
+	<Experiment
+		expTitle="Expérience 12"
+		expDescription=""
+		initialConfig={exp12Config}
+	/>
+
+	-->
 </div>
 
 <style>
@@ -574,5 +682,12 @@
 		width: 90%;
 		margin: 0 auto;
 		text-align: justify;
+	}
+
+	.loadExpsBtn, .createExpBtn {
+		display: block;
+		margin: 20px auto;
+		padding: 5px;
+		color: darkblue;
 	}
 </style>

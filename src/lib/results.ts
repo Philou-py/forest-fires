@@ -55,18 +55,18 @@ export function getFireCentre(board: DrawingBoard): [number, number] {
 	return [rowSum / burntCells, colSum / burntCells];
 }
 
-export function mergeRuns(baseRuns: SimResult[], nbReps: number, newRuns: SimResult[]) {
+export function mergeRuns(baseRuns: SimResult[], nbReps: number, newRuns: SimResult[], nbNewReps: number) {
 	baseRuns.forEach((simRes, i) => {
-		simRes.nbSteps = (nbReps * simRes.nbSteps + newRuns[i].nbSteps) / (nbReps + 1);
-		simRes.burnPerc = (nbReps * simRes.burnPerc + newRuns[i].burnPerc) / (nbReps + 1);
+		simRes.nbSteps = (nbReps * simRes.nbSteps + nbNewReps * newRuns[i].nbSteps) / (nbReps + nbNewReps);
+		simRes.burnPerc = (nbReps * simRes.burnPerc + nbNewReps * newRuns[i].burnPerc) / (nbReps + nbNewReps);
 		simRes.fireCentre[0] =
-			(nbReps * simRes.fireCentre[0] + newRuns[i].fireCentre[0]) / (nbReps + 1);
+			(nbReps * simRes.fireCentre[0] + nbNewReps * newRuns[i].fireCentre[0]) / (nbReps + nbNewReps);
 		simRes.fireCentre[1] =
-			(nbReps * simRes.fireCentre[1] + newRuns[i].fireCentre[1]) / (nbReps + 1);
+			(nbReps * simRes.fireCentre[1] + nbNewReps * newRuns[i].fireCentre[1]) / (nbReps + nbNewReps);
 
 		simRes.burnPercByVegType.forEach((burntVeg, j) => {
 			if (burntVeg[2] !== null) {
-				burntVeg[2] = (nbReps * burntVeg[2] + newRuns[i].burnPercByVegType[j][2]!) / (nbReps + 1);
+				burntVeg[2] = (nbReps * burntVeg[2] + nbNewReps * newRuns[i].burnPercByVegType[j][2]!) / (nbReps + nbNewReps);
 			}
 		});
 	});
@@ -113,7 +113,9 @@ export function getGreatestGap(data: [number, number][]) {
 	let greatestIndex = 0;
 
 	for (let i = 0; i < data.length - 1; i++) {
-		const distance = Math.sqrt((data[i + 1][1] - data[i][1])**2 + (data[i + 1][0] - data[i][0])**2);
+		const distance = Math.sqrt(
+			(data[i + 1][1] - data[i][1]) ** 2 + (data[i + 1][0] - data[i][0]) ** 2
+		);
 		if (distance > greatestGap) {
 			greatestGap = distance;
 			greatestIndex = i;

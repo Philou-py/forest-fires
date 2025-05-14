@@ -16,7 +16,9 @@
 		"@sveltejs/adapter-node": "^5.2.11",
 		"@sveltejs/kit": "^2.15.1",
 		"@sveltejs/vite-plugin-svelte": "^4.0.4",
+		"@types/google-protobuf": "^3.15.12",
 		"@types/node": "^22.10.2",
+		"@types/protobufjs": "^6.0.0",
 		"prettier": "^3.4.2",
 		"prettier-plugin-svelte": "^3.3.2",
 		"sass": "^1.83.0",
@@ -27,7 +29,9 @@
 	},
 	"dependencies": {
 		"@fontsource/space-mono": "^5.1.2",
+		"@grpc/grpc-js": "^1.13.3",
 		"canvas": "^3.0.0",
-		"chart.js": "^4.4.7"
+		"chart.js": "^4.4.7",
+		"dgraph-js": "^24.2.0"
 	}
 }

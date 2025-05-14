@@ -69,7 +69,9 @@ function sleep(millis: number) {
 }
 
 export type SimOptions = {
+	uid: string;
 	neighbourhood: NeighbourhoodType;
+	mooreSpread?: number;
 	// If set, the 'imageData' array will be updated when a cell is changed, and 'putImageData' will be called at each step.
 	drawEachStep?: boolean;
 	stepInterval?: number;
@@ -154,23 +156,24 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
 }
 
 export type ExpConfig = {
+	uid?: string;
 	nbIters?: number;
-	nbReps?: number;
-	startVal?: number;
+	nbReps: number;
+	begNbReps: number;
 	width?: number;
 	height?: number;
 	maps?: ('vegetation' | 'density' | 'roads' | 'waterlines')[];
 	pixelThickness?: number;
 	useDensity: boolean;
 	neighbourhood?: 'Von Neumann' | 'Moore';
-	mooreSpread?: number;
 	firePos?: [number, number];
-	simOptions?: Partial<SimOptions>;
 	variable: string;
-	min: number;
+	startVal: number;
+	nextExp?: number;
 	max?: number;
 	step: number;
 	labelFormat: string;
+	simOptions?: Partial<SimOptions>;
 };
 
 export type SimResult = {
@@ -184,13 +187,12 @@ export type SimResult = {
 export type ExpResults = {
 	runs: SimResult[];
 	labels: string[];
-	nextExp?: number;
 };
 
 export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	if (!expConfig.nbIters) expConfig.nbIters = 5;
-	if (!expConfig.nbReps) expConfig.nbReps = 1;
-	if (!expConfig.startVal) expConfig.startVal = 0;
+	if (!expConfig.nbReps) expConfig.nbReps = expConfig.begNbReps;
+	if (!expConfig.nextExp) expConfig.nextExp = expConfig.startVal;
 	if (!expConfig.simOptions) expConfig.simOptions = {};
 	if (!expConfig.simOptions.windSpeed) expConfig.simOptions.windSpeed = 0;
 	if (!expConfig.simOptions.windDir) expConfig.simOptions.windDir = 0;
@@ -199,11 +201,11 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	if (!expConfig.simOptions.c2) expConfig.simOptions.c2 = c2;
 	if (!expConfig.simOptions.c3) expConfig.simOptions.c3 = c3;
 	if (!expConfig.simOptions.vegWeights) expConfig.simOptions.vegWeights = vegWeights;
-	if (!expConfig.maps) expConfig.maps = ['vegetation', 'roads', 'waterlines'];
+	if (!expConfig.maps) expConfig.maps = [];
 	if (expConfig.useDensity) expConfig.maps.push('density');
 
 	if (expConfig.neighbourhood === 'Von Neumann') expConfig.simOptions.neighbourhood = VON_NEUMANN;
-	else expConfig.simOptions.neighbourhood = mooreNeigh(expConfig.mooreSpread ?? 1);
+	else expConfig.simOptions.neighbourhood = mooreNeigh(expConfig.simOptions.mooreSpread ?? 1);
 
 	const width = expConfig.width ?? 800,
 		height = expConfig.height ?? 800;
@@ -219,19 +221,23 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	);
 
 	const expComplete = expConfig.max
-		? expConfig.startVal + expConfig.step * expConfig.nbIters >= expConfig.max
+		? expConfig.nextExp! + expConfig.step * expConfig.nbIters >= expConfig.max
 		: false;
 	const testVals = [
 		...Array(
-			expComplete ? (expConfig.max! - expConfig.startVal) / expConfig.step : expConfig.nbIters
+			expComplete ? (expConfig.max! - expConfig.nextExp!) / expConfig.step : expConfig.nbIters
 		).keys()
-	].map((i) => expConfig.step * i + expConfig.startVal!);
+	].map((i) => expConfig.step * i + expConfig.nextExp!);
+	console.log("nbIters", expConfig.nbIters);
+	console.log("testVals", testVals);
 
 	let runs: SimResult[] = [];
 	let nbReps = 0;
-	
+
 	for (let rep = 0; rep < expConfig.nbReps!; rep++) {
-		const runsPromise = testVals.map(async (testVal) => {
+		const newRuns = [];
+
+		for (const testVal of testVals) {
 			const board: DrawingBoard = {
 				ctx: canvas.getContext('2d'),
 				imageData: createImageData(width, height),
@@ -258,104 +264,60 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 
 			const { nbSteps } = await simulate(board, expConfig.simOptions as SimOptions);
 
-			return {
+			newRuns.push({
 				nbSteps,
 				burnPerc: getBurnPercentage(board),
 				burnPercByVegType: getBurntVegTypes(board),
 				fireCentre: getFireCentre(board)
-			};
-		});
+			});
+		}
 
-		const newRuns = await Promise.all(runsPromise);
 		if (nbReps === 0) runs = newRuns;
-		else nbReps = mergeRuns(runs, nbReps, newRuns);
+		mergeRuns(runs, nbReps, newRuns, 1);
+		nbReps++;
 	}
 
-	return {
-		runs,
-		labels: testVals.map((v) =>
-			expConfig.labelFormat.replace('%s', (Math.round(v * 100) / 100).toString())
-		),
-		nextExp: expComplete ? undefined : expConfig.startVal + expConfig.step * expConfig.nbIters
-	};
+	const labels = testVals.map((v) =>
+		expConfig.labelFormat.replace('%s', (Math.round(v * 100) / 100).toString())
+	);
+	
+	expConfig.nextExp = expComplete ? undefined : expConfig.nextExp! + expConfig.step * expConfig.nbIters;
+	return { runs, labels };
 }
 
-export const exp1Config: ExpConfig = {
-	// If not specified, set to "Moore"
-	neighbourhood: 'Moore',
+// export const exp1Config: ExpConfig = {
+// 	// If not specified, set to "Moore"
+// 	neighbourhood: 'Moore',
 
-	// This represents the spread radius of the Moore neighbourhood. The default value is 1.
-	mooreSpread: 1,
+// 	// This represents the spread radius of the Moore neighbourhood. The default value is 1.
+// 	mooreSpread: 1,
 
-	// If not specified, all maps are included.
-	// An empty array corresponds to the fully wooded grid.
-	// Possible values include "vegetation", "roads" and "waterlines".
-	// maps: [],
+// 	// If not specified, all maps are included.
+// 	// An empty array corresponds to the fully wooded grid.
+// 	// Possible values include "vegetation", "roads" and "waterlines".
+// 	// maps: [],
 
-	// The default number of iterations to run at once suggested on the dashboard
-	// More than 40 iterations will probably crash (memory limit)
-	nbIters: 5,
+// 	// The default number of iterations to run at once suggested on the dashboard
+// 	// More than 40 iterations will probably crash (memory limit)
+// 	nbIters: 5,
 
-	useDensity: true,
+// 	useDensity: true,
 
-	// Any parameter in SimOptions (except for 'neighbourhood', 'drawEachStep' and 'stepInterval')
-	// To make a value in 'vegWeights' vary, use the dot notation (ex: 'vegWeights.Agriculture')
-	// To make the Moore spread radius vary, refer to 'mooreSpread'
-	variable: 'windSpeed',
+// 	// Any parameter in SimOptions (except for 'neighbourhood', 'drawEachStep' and 'stepInterval')
+// 	// To make a value in 'vegWeights' vary, use the dot notation (ex: 'vegWeights.Agriculture')
+// 	// To make the Moore spread radius vary, refer to 'mooreSpread'
+// 	variable: 'windSpeed',
 
-	min: 0,
-	// max is optional
+// 	startVal: 0,
+// 	// max is optional
 
-	step: 1,
+// 	step: 1,
 
-	// '%s' will be replaced with the parameter
-	labelFormat: '%s m/s',
+// 	// '%s' will be replaced with the parameter
+// 	labelFormat: '%s m/s',
 
-	// Any simulation option can be modified
-	simOptions: {
-		baseProb: 0.5
-	}
-};
-
-export const exp2Config: ExpConfig = {
-	nbIters: 5,
-	maps: [],
-	useDensity: false,
-	variable: 'windDir',
-	min: 0,
-	max: 360,
-	step: 10,
-	labelFormat: '%s°'
-};
-
-export const exp3Config: ExpConfig = {
-	neighbourhood: 'Von Neumann',
-	nbIters: 5,
-	useDensity: true,
-	variable: 'windDir',
-	min: 0,
-	max: 360,
-	step: 10,
-	labelFormat: '%s°'
-};
-
-export const exp4Config: ExpConfig = {
-	maps: [],
-	useDensity: false,
-	neighbourhood: 'Moore',
-	variable: 'mooreSpread',
-	min: 1,
-	step: 1,
-	labelFormat: '%s',
-	nbIters: 5
-};
-
-export const exp5Config: ExpConfig = {
-	useDensity: true,
-	neighbourhood: 'Moore',
-	variable: 'mooreSpread',
-	min: 1,
-	step: 1,
-	labelFormat: '%s',
-	nbIters: 5
-};
+// 	// Any simulation option can be modified
+// 	simOptions: {
+// 		baseProb: 0.5
+// 	}
+// };

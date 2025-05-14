@@ -15,38 +15,62 @@
 services:
   forest-fires:
     image: philoupy/forest-fires:latest
+    # environment:
+    #   - DGRAPH_URL=http://alpha:8080/graphql
+    #   - PUBLIC_BASE_URL=http://localhost:3000/
     # Documentation: https://docs.docker.com/reference/compose-file/build
     build:
       # 'context' indicates the location of the Dockerfile
       # Alternatively, the 'dockerfile' attribute can be set to a custom file
-      context: "."
+      context: '.'
       platforms:
-        - "linux/amd64"
-        - "linux/arm64"
+        - 'linux/amd64'
+        - 'linux/arm64'
     ports:
       - 3001:3000
     restart: always
+
+  zero:
+    image: dgraph/dgraph:v23.1.0-arm64
+    volumes:
+      - /var/dgraph:/dgraph
+    ports:
+      - 5080:5080
+      - 6080:6080
+    restart: always
+    command: dgraph zero --my=zero:5080
+
+  alpha:
+    image: dgraph/dgraph:v23.1.0-arm64
+    volumes:
+      - /var/dgraph:/dgraph
+    ports:
+      - 8080:8080
+      - 9080:9080
+    restart: always
+    command: dgraph alpha --my=alpha:7080 --zero=zero:5080 --security whitelist=192.168.86.99
+  
 
   # Update sources: sudo apk update
   # Install Node and npm: sudo apk add --no-cache nodejs npm
   # Install node-canvas dependencies: sudo apk add build-base cairo-dev pango-dev jpeg-dev giflib-dev librsvg-dev
   # In the 'sshd' folder, open 'sshd_config' and set 'AllowTcpForwarding' to 'yes' for the VS Code SSH extension to work.
-  openssh:
-    image: lscr.io/linuxserver/openssh-server:latest
-    container_name: openssh-server
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Europe/Paris
-      - SUDO_ACCESS=true # optional
-      - PASSWORD_ACCESS=true # optional
-      - USER_PASSWORD_FILE=/config/password.txt # optional
-      - USER_NAME=tipe # optional
-    volumes:
-      - /home/ubuntu/tipe-openssh:/config
-      - /home/ubuntu/forest-fires-dev:/forest-fires
-    ports:
-      - 2222:2222
-      - 5173:5173 # Not useful if using port forwarding through VS Code
-      - 4173:4173 # Not useful if using port forwarding through VS Code
-    restart: unless-stopped
+  # openssh:
+  #   image: lscr.io/linuxserver/openssh-server:latest
+  #   container_name: openssh-server
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=Europe/Paris
+  #     - SUDO_ACCESS=true # optional
+  #     - PASSWORD_ACCESS=true # optional
+  #     - USER_PASSWORD_FILE=/config/password.txt # optional
+  #     - USER_NAME=tipe # optional
+  #   volumes:
+  #     - /home/ubuntu/tipe-openssh:/config
+  #     - /home/ubuntu/forest-fires-dev:/forest-fires
+  #   ports:
+  #     - 2222:2222
+  #     - 5173:5173 # Not useful if using port forwarding through VS Code
+  #     - 4173:4173 # Not useful if using port forwarding through VS Code
+  #   restart: unless-stopped
