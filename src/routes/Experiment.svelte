@@ -88,10 +88,11 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(config)
 		});
-		const results: ExpResults = await response.json();
+		const results: ExpResults & { nextExp: number } = await response.json();
 
 		runs.push(...results.runs);
 		labels.push(...results.labels);
+		config.nextExp = results.nextExp;
 
 		ongoingExp = false;
 		await tick();
@@ -102,9 +103,10 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
 				expUid: expData.uid,
+				configUid: config.uid,
 				runs,
 				labels,
-				nextExp: config.startVal
+				nextExp: config.nextExp
 			})
 		});
 		const saveResult = await saveResponse.json();

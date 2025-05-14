@@ -8,10 +8,11 @@ import { removeResults } from '../reset-exp/removeResults';
 export const POST: RequestHandler = async ({ request }) => {
 	const {
 		expUid,
+		configUid,
 		runs,
 		labels,
 		nextExp
-	}: { expUid: string; runs: SimResult[]; labels: string[]; nextExp: number } =
+	}: { expUid: string; configUid: string; runs: SimResult[]; labels: string[]; nextExp: number } =
 		await request.json();
 
 	const remResult = await removeResults(expUid);
@@ -21,7 +22,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	try {
 		const mutation = new Mutation();
-		mutation.setSetJson({
+		mutation.setSetJson([{
+			uid: configUid,
+			nextExp,
+		}, {
 			uid: expUid,
 			expResults: {
 				'dgraph.type': 'ExpResults',
@@ -37,16 +41,15 @@ export const POST: RequestHandler = async ({ request }) => {
 						vegName,
 						vegIndex,
 						burnPerc
-					}))
+					})),
 				})),
 				labels: labels.map((label, i) => ({
 					'dgraph.type': 'Label',
 					labelName: label,
 					labelIndex: i
 				})),
-				nextExp
 			}
-		});
+		}]);
 
 		await txn.mutate(mutation);
 		await txn.commit();
