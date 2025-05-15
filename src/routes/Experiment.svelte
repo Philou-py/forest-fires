@@ -24,7 +24,7 @@
 	let runs: SimResult[] = $state(expData.expResults ? expData.expResults.runs : []);
 	let labels: string[] = $state(expData.expResults ? expData.expResults.labels : []);
 	let config: ExpConfig = $state(expData.expConfig);
-	let shouldSmooth = $state(true);
+	let shouldSmooth = $state(false);
 	let showModal = $state(false);
 
 	let slopes = $state({

@@ -100,7 +100,5 @@ export const load: PageServerLoad = async () => {
 		}
 	});
 
-	console.log(experiments);
-
 	return { experiments } as { experiments: ExpData[] };
 };
