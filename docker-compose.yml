@@ -17,7 +17,6 @@ services:
     image: philoupy/forest-fires:latest
     environment:
       - DGRAPH_URL=alpha:9080
-      - PUBLIC_BASE_URL=http://localhost:3000/
     # Documentation: https://docs.docker.com/reference/compose-file/build
     build:
       # 'context' indicates the location of the Dockerfile
@@ -27,16 +26,13 @@ services:
         - 'linux/amd64'
         - 'linux/arm64'
     ports:
-      - 3001:3000
+      - 3003:3000
     restart: always
 
   zero:
     image: dgraph/dgraph:v23.1.0-arm64
     volumes:
       - /var/dgraph_forest-fires:/dgraph
-    ports:
-      - 5080:5080
-      - 6080:6080
     restart: always
     command: dgraph zero --my=zero:5080
 
@@ -46,7 +42,7 @@ services:
       - /var/dgraph_forest-fires:/dgraph
     ports:
       - 8083:8080
-      - 9080:9080
+      - 9083:9080
     restart: always
     command: dgraph alpha --my=alpha:7080 --zero=zero:5080 --security whitelist=192.168.86.99
   
