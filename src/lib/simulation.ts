@@ -138,6 +138,8 @@ export async function simulate(board: DrawingBoard, options: SimOptions) {
 		// 'updateCell' will update 'cellsOnFire', hence the need to store the number
 		// of elements to consider in each step
 		const nbCellsOnFire = board.cellsOnFire.size;
+		// The 'values' iterator is guaranteed to return the elements of the set
+		// in insertion order
 		const cellsIterator = board.cellsOnFire.values();
 
 		for (let i = 0; i < nbCellsOnFire; i++) {
@@ -228,7 +230,9 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 			expComplete ? (expConfig.max! - expConfig.nextExp!) / expConfig.step : expConfig.nbIters
 		).keys()
 	].map((i) => expConfig.step * i + expConfig.nextExp!);
+
 	console.log("nbIters", expConfig.nbIters);
+	console.log("nbReps", expConfig.nbReps);
 	console.log("testVals", testVals);
 
 	let runs: SimResult[] = [];
@@ -280,7 +284,7 @@ export async function experiment(expConfig: ExpConfig): Promise<ExpResults> {
 	const labels = testVals.map((v) =>
 		expConfig.labelFormat.replace('%s', (Math.round(v * 100) / 100).toString())
 	);
-	
+
 	expConfig.nextExp = expComplete ? undefined : expConfig.nextExp! + expConfig.step * expConfig.nbIters;
 	return { runs, labels };
 }

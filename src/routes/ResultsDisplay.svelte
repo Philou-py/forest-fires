@@ -10,6 +10,7 @@
 	// Assign colours automatically, even to a dynamically added dataset
 	// https://www.chartjs.org/docs/latest/general/colors.html#dynamic-datasets-at-runtime
 	Chart.defaults.plugins.colors.forceOverride = true;
+	// Chart.defaults.font.size = 16;
 
 	interface Props {
 		runs: SimResult[];

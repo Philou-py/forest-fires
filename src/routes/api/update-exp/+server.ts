@@ -6,8 +6,6 @@ import { Mutation } from "dgraph-js";
 export const POST: RequestHandler = async ({ request }) => {
   const { expUid, expTitle, expDescription, newConfig } = await request.json();
   const txn = db.newTxn();
-  console.log("expUid", expUid);
-  console.log(newConfig);
 
   try {
     const mutation = new Mutation();
