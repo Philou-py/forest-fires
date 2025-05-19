@@ -4,7 +4,7 @@ import type { PageServerLoad } from './$types';
 
 const experimentsQuery = `
   query ExperimentsQuery {
-    experiments(func: type(Experiment), orderasc: expTitle) {
+    experiments(func: type(Experiment), orderasc: expTitle) @filter(anyofterms(expTitle, "01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17")) {
       uid
       expTitle
       expDescription
