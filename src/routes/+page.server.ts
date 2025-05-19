@@ -41,10 +41,10 @@ const experimentsQuery = `
         }
       }
       expResults {
-        runs(orderasc: runIndex) {
+        runs (orderasc: runIndex) {
           nbSteps
           burnPerc
-          burnPercByVegType {
+          burnPercByVegType (orderasc: vegIndex) {
             vegName
             vegIndex
             burnPerc
@@ -52,7 +52,7 @@ const experimentsQuery = `
           fireCentreX
           fireCentreY
         }
-        labels(orderasc: labelIndex) {
+        labels (orderasc: labelIndex) {
           labelName
         }
       }

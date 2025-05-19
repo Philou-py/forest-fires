@@ -95,8 +95,10 @@
 
 		ctx.translate(10, 350 * 2);
 
+		const ON_FIRE = '#ff5722';
+		const FOREST = '#8de368';
 		const grid = [
-			[false, false, false, false, false, false, false],
+			[false, true, false, false, false, false, false],
 			[false, true, false, false, false, false, false],
 			[false, false, true, false, true, false, false],
 			[false, true, true, true, true, false, false],
@@ -110,27 +112,91 @@
 		ctx.globalAlpha = 189 / 255;
 		for (let i = 0; i < size; i++) {
 			for (let j = 0; j < size; j++) {
-				ctx.fillStyle = grid[i][j] ? '#ff5722' : '#8de368';
-				ctx.fillRect(sqSize * j, sqSize * i, sqSize, sqSize);
+				if (!(i === 3 && j === 3) && !(i === 1 && j === 4)) {
+					ctx.fillStyle = grid[i][j] ? ON_FIRE : FOREST;
+					ctx.fillRect(sqSize * j, sqSize * i, sqSize, sqSize);
+				}
 			}
 		}
-		ctx.globalAlpha = 1;
 
-		ctx.fillStyle = '#3d9c14';
+		// Create a linear colour gradient between two points
+		const fireGradient = ctx.createLinearGradient(3 * sqSize, 3 * sqSize, 4 * sqSize, 4 * sqSize);
+		const fireColourStops: [number, string][] = [
+			[0, '#d53301'],
+			[0.1, '#d53301'],
+			[0.1, ON_FIRE],
+			[0.2, ON_FIRE],
+			[0.2, '#d53301'],
+			[0.3, '#d53301'],
+			[0.3, ON_FIRE],
+			[0.4, ON_FIRE],
+			[0.4, '#d53301'],
+			[0.5, '#d53301'],
+			[0.5, ON_FIRE],
+			[0.6, ON_FIRE],
+			[0.6, '#d53301'],
+			[0.7, '#d53301'],
+			[0.7, ON_FIRE],
+			[0.8, ON_FIRE],
+			[0.8, '#d53301'],
+			[0.9, '#d53301'],
+			[0.9, ON_FIRE],
+			[1, ON_FIRE]
+		];
+		fireColourStops.forEach(([stop, col]) => {
+			fireGradient.addColorStop(stop, col);
+		});
+
+		ctx.fillStyle = fireGradient;
+		ctx.fillRect(3 * sqSize, 3 * sqSize, sqSize, sqSize);
+
+		const forestGradient = ctx.createLinearGradient(4 * sqSize, sqSize, 5 * sqSize, 2 * sqSize);
+		let forestColourStops: [number, string][] = [
+			[0, '#3d9c14'],
+			[0.1, '#3d9c14'],
+			[0.1, FOREST],
+			[0.2, FOREST],
+			[0.2, '#3d9c14'],
+			[0.3, '#3d9c14'],
+			[0.3, FOREST],
+			[0.4, FOREST],
+			[0.4, '#3d9c14'],
+			[0.5, '#3d9c14'],
+			[0.5, FOREST],
+			[0.6, FOREST],
+			[0.6, '#3d9c14'],
+			[0.7, '#3d9c14'],
+			[0.7, FOREST],
+			[0.8, FOREST],
+			[0.8, '#3d9c14'],
+			[0.9, '#3d9c14'],
+			[0.9, FOREST],
+			[1, FOREST]
+		];
+		forestColourStops.forEach(([stop, col]) => {
+			forestGradient.addColorStop(stop, col);
+		});
+
+		ctx.fillStyle = forestGradient;
 		ctx.fillRect(4 * sqSize, sqSize, sqSize, sqSize);
+
+		ctx.globalAlpha = 1;
 
 		ctx.strokeStyle = ACTIVE;
 		ctx.strokeRect(sqSize, sqSize, 5 * sqSize, 5 * sqSize);
 
-		ctx.strokeStyle = "#333";
-		ctx.fillStyle = "#333";
+		ctx.fillStyle = ACTIVE;
+		ctx.fillText('Limite du voisinage', 3 * sqSize, 3 * sqSize / 4);
+
+		ctx.strokeStyle = '#333';
+		ctx.fillStyle = '#333';
 		const centre = (size * sqSize) / 2;
 		const endX = 4.5 * sqSize;
 		const endY = 1.5 * sqSize;
 		drawArrow(centre, centre, endX, endY, true);
 		drawArrow(endX, endY, centre, centre, true);
 
-		ctx.fillText("𝑑", centre + 8, centre - 50);
+		ctx.fillText('𝑑', centre + 8, centre - 50);
 
 		ctx.beginPath();
 		ctx.moveTo(0, centre);
@@ -142,17 +208,17 @@
 		ctx.beginPath();
 		ctx.arc(centre, centre, 30, 0, Math.atan2(endY - centre, endX - centre), true);
 		ctx.stroke();
-		ctx.fillText("𝜃", centre + 35, centre - 15)
+		ctx.fillText('𝜃', centre + 35, centre - 15);
 
-
-		ctx.fillStyle = "darkmagenta";
-		ctx.strokeStyle = "darkmagenta";
+		ctx.fillStyle = 'darkmagenta';
+		ctx.strokeStyle = 'darkmagenta';
 		drawArrow(centre, centre, centre + 2 * sqSize, centre + 2 * sqSize, true);
-		
+		ctx.fillText('𝑣', centre + 30, centre + sqSize + 10);
+
 		ctx.beginPath();
 		ctx.arc(centre, centre, 30, 0, Math.PI / 4);
 		ctx.stroke();
-		ctx.fillText("𝜃ᵥ", centre + 35, centre + 23)
+		ctx.fillText('𝜃ᵥ', centre + 35, centre + 23);
 	});
 
 	function drawGrid(size = 10, sqSize = 50, filled: [number, number, string, string][] = []) {
